@@ -12,12 +12,6 @@ namespace Elatec.NET.Model
         {
         }
 
-        public uint FreeMemory { get; set; }
-
-        public string ChipIdentifier { get; set; }        
-
         public string Value { get; set; }
-
-        public CARD_TYPE CardType { get; set; }
     }
 }

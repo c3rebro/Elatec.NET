@@ -1,18 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
+﻿using Microsoft.Win32;
+
+using System;
 using System.IO.Ports;
-using Microsoft.Win32;
 using System.Globalization;
 using System.Threading;
 
-using Elatec.NET;
 using Elatec.NET.Model;
 
 using Log4CSharp;
+
+using ByteArrayHelper.Extensions;
 /*
  * Elatec.NET is a C# library to easily Talk to Elatec's TWN4 Devices
  * 
@@ -26,14 +23,16 @@ namespace Elatec.NET
 {
     public class TWN4ReaderDevice : IDisposable
     {
+        private const string BEEP_CMD = "0407";
+        private const string LEDINIT_CMD = "0410";
+        private const string LEDON_CMD = "0411";
+        private const string LEDOFF_CMD = "0412";
+
         private string LogFacilityName = "RFiDGear";
 
-        private readonly byte[] Message;
-        private readonly SerialPort TWNPort;
-        private readonly bool Run = false;
-        private readonly int portNumber;
+        private int portNumber;
 
-        private bool _disposed = false;
+        private bool _disposed;
 
         public static TWN4ReaderDevice Instance
         {
@@ -49,7 +48,7 @@ namespace Elatec.NET
                     }
                     else
                     {
-                        return null;
+                        return instance;
                     }
                 }
             }
@@ -58,88 +57,292 @@ namespace Elatec.NET
         private static readonly object syncRoot = new object();
         private static TWN4ReaderDevice instance;
 
-        public TWN4ReaderDevice() : this(new SerialPort())
+        public TWN4ReaderDevice()
         {
-            Run = true;
-        }
-
-        public TWN4ReaderDevice(System.IO.Ports.SerialPort port)
-        {
-            TWNPort = port;
-            Run = true;
         }
 
         public TWN4ReaderDevice(int port)
         {
-            TWNPort = new SerialPort(GetTWNPortName(port));
-            Run = true;
-        }
-
-        public bool Connect()
-        {
-            ConnectTWN4(TWNPort.PortName);
-
-            return true;
-        }
-
-        public bool Disconnect()
-        {
-            DisconnectTWN4();
-
-            return true;
+            portNumber = port;
         }
 
         #region Common
 
         public void Beep()
         {
-            var Result = DoTXRX(new byte[] { 0x04, 0x07, 0x64, 0x60, 0x09, 0x54, 0x01, 0xF4, 0x01 });
+            Result = DoTXRX(new byte[] { 0x04, 0x07, 0x64, 0x60, 0x09, 0x54, 0x01, 0xF4, 0x01 }); 
+        }
+
+        public void Beep(ushort iterations, ushort length, ushort freq, byte vol)
+        {
+            for (int i = 0; i < iterations; i++)
+            {
+                Result = DoTXRX(
+                    ByteConverter.GetBytesFrom(BEEP_CMD +
+                    ByteConverter.GetStringFrom(vol) +
+                    ByteConverter.GetStringFrom(BitConverter.GetBytes(freq)) +
+                    ByteConverter.GetStringFrom(BitConverter.GetBytes(length)) +
+                    ByteConverter.GetStringFrom(BitConverter.GetBytes(length)))
+                    );
+            }
         }
 
         public void GreenLED(bool On)
         {
-            var Result = DoTXRX(new byte[] { 0x04, 0x10, 0x00, 0x07 });
+            Result = DoTXRX(
+                    ByteConverter.GetBytesFrom(LEDINIT_CMD +
+                    ByteConverter.GetStringFrom(0x01))
+                    );
+            Result = DoTXRX(
+                    ByteConverter.GetBytesFrom(LEDON_CMD +
+                    ByteConverter.GetStringFrom(0x01))
+                    );
         }
 
         public ChipModel GetSingleChip()
         {
             try
             {
-                var Result = DoTXRX(new byte[] { 0x04, 0x07, 0x64, 0x60, 0x09, 0x54, 0x01, 0xF4, 0x01 });
-                Result = DoTXRX(new byte[] { 0x05, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF });
-                Result = DoTXRX(new byte[] { 0x05, 0x00, 0x10 });
-                Result = DoTXRX(new byte[] { 0x0F, 0x12, 0x00 });
+                genericChipModel = new ChipModel();
+
+                Result = DoTXRX(new byte[] { 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF }); //SetChipTypes (HF onyl)
+                Result = DoTXRX(new byte[] { 0x05, 0x00, 0x20}); //GetChip
+                
+                genericChipModel.ChipIdentifier = ByteConverter.GetStringFrom(Result, 5);
+
+                if (Result?.Length >= 3)
+                {
+                    genericChipModel.CardType = (ChipType)Result[2];
+                }
+
+                switch (genericChipModel.CardType)
+                {
+                    case ChipType.MIFARE: //Start Mifare Identification Process
+
+                        Result = DoTXRX(new byte[] { 0x12, 0x05 }); //GetSAK
+
+                        if (Result?.Length == 3)
+                        {
+                            // Start MIFARE identification
+                            if ((Result[2] & 0x02) == 0x02)
+                            {
+                                genericChipModel.CardType = ChipType.Unspecified;
+                            } // RFU bit set (RFU = Reserved for Future Use)
+
+                            else
+                            {
+                                if ((Result[2] & 0x08) == 0x08)
+                                {
+                                    if ((Result[2] & 0x10) == 0x10)
+                                    {
+                                        if ((Result[2] & 0x01) == 0x01)
+                                        {
+                                            genericChipModel.CardType = ChipType.Mifare2K;
+                                        } // // SAK b1 = 1 ? >> Mifare Classic 2K
+                                        else
+                                        {
+                                            if ((Result[2] & 0x20) == 0x20)
+                                            {
+                                                genericChipModel.CardType = ChipType.SmartMX_Mifare_4K;
+                                            } // SAK b6 = 1 ?  >> SmartMX Classic 4K
+                                            else
+                                            {
+                                                var ATS = DoTXRX(new byte[] { 0x12, 0x07, 0x04, 0xE0, 0x10, 0xB8, 0xE7, 0xFF, 0xFF, 0x00 }); // Get ATS
+
+                                                if (ATS.Length > 4)
+                                                {
+                                                    if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x00, 0x35, 0xC7 }) != 0) //MF PlusS 4K in SL1
+                                                    {
+                                                        genericChipModel.CardType = ChipType.MifarePlus_SL1_4K;
+                                                    }
+
+                                                    else if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
+                                                    {
+                                                        genericChipModel.CardType = ChipType.MifarePlus_SL1_4K;
+                                                    }
+
+                                                } // Mifare Plus S / Plus X 4K
+
+                                                else
+                                                {
+                                                    genericChipModel.CardType = ChipType.Mifare4K;
+                                                } //Error on ATS = Mifare Classic 4K
+                                                break;
+                                            }
+                                        }
+                                    } // SAK b5 = 1 ?
+                                    else
+                                    {
+                                        if ((Result[2] & 0x01) == 0x01)
+                                        {
+                                            genericChipModel.CardType = ChipType.MifareMini;
+                                        } // // SAK b1 = 1 ? >> Mifare Mini
+                                        else
+                                        {
+                                            if ((Result[2] & 0x20) == 0x20)
+                                            {
+                                                genericChipModel.CardType = ChipType.SmartMX_Mifare_1K;
+                                            } // // SAK b6 = 1 ? >> SmartMX Classic 1K
+                                            else
+                                            {
+                                                var ATS = DoTXRX(new byte[] { 0x12, 0x07, 0x04, 0xE0, 0x10, 0xB8, 0xE7, 0xFF, 0xFF, 0x00 }); // Get ATS
+
+                                                if (ATS.Length > 4)
+                                                {
+                                                    if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x00, 0x35, 0xC7 }) != 0) //MF PlusS 4K in SL1
+                                                    {
+                                                        genericChipModel.CardType = ChipType.MifarePlus_SL1_2K;
+                                                    }
+
+                                                    else if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
+                                                    {
+                                                        genericChipModel.CardType = ChipType.MifarePlus_SL1_2K;
+                                                    }
+
+                                                    else if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x21, 0x30, 0x00, 0xF6, 0xD1 }) != 0) //MF PlusSE 1K
+                                                    {
+                                                        genericChipModel.CardType = ChipType.MifarePlus_SL0_1K;
+                                                    }
+
+                                                } // Mifare Plus S / Plus X 4K
+
+                                                else
+                                                {
+                                                    genericChipModel.CardType = ChipType.Mifare1K;
+                                                } //Error on ATS = Mifare Classic 1K
+                                            } // Mifare Plus; Historical Bytes ?
+                                        }
+                                    }
+                                } // SAK b4 = 1 ?
+                                else
+                                {
+                                    if ((Result[2] & 0x10) == 0x10)
+                                    {
+                                        if ((Result[2] & 0x01) == 0x01)
+                                        {
+                                            genericChipModel.CardType = ChipType.MifarePlus_SL2_4K;
+                                        } // Mifare Plus 4K in SL2
+                                        else
+                                        {
+                                            genericChipModel.CardType = ChipType.MifarePlus_SL2_2K;
+                                        } // Mifare Plus 2K in SL2
+                                    }
+                                    else
+                                    {
+                                        if ((Result[2] & 0x01) == 0x01) // SAK b1 = 1 ?
+                                        {
+
+                                        } // Chip is "TagNPlay"
+                                        else
+                                        {
+                                            if ((Result[2] & 0x20) == 0x20)
+                                            {
+                                                //ISO 14443-4
+                                                var ATS = DoTXRX(new byte[] { 0x12,0x07,  0x04,  0xE0,0x10,0xB8,0xE7,  0xFF,  0xFF,0x00 }); // Get ATS
+                                                Result = DoTXRX(new byte[] { 0x05, 0x00, 0x20 }); //GetChip
+                                                var SAK = DoTXRX(new byte[] { 0x12, 0x05 }); //GetSAK
+                                                var getVersion = DoTXRX(new byte[] { 0x12, 0x03, 0x01, 0x60, 0x20 }); //issue GetVersion
+
+                                                if (ATS.Length == 0x0b && getVersion?.Length > 4 && getVersion?[3] == 0xAF)
+                                                {
+                                                    // Mifare Plus EV1/2 || DesFire || NTAG
+                                                    if (getVersion?.Length > 1 && (getVersion?[5] == 0x01 || getVersion?[5] == 0x81)) // DESFIRE
+                                                    {
+                                                        switch (getVersion?[7] & 0x0F) // Desfire(Sub)Type by lower Nibble of Major Version
+                                                        {
+                                                            case 0:
+                                                                genericChipModel.CardType = ChipType.DESFire;
+                                                                break;
+                                                            case 1:
+                                                                genericChipModel.CardType = ChipType.DESFireEV1;
+                                                                break;
+                                                            case 2:
+                                                                genericChipModel.CardType = ChipType.DESFireEV2;
+                                                                break;
+                                                            case 3:
+                                                                genericChipModel.CardType = ChipType.DESFireEV3;
+                                                                break;
+                                                            default:
+                                                                break;
+                                                        }
+
+                                                        switch (getVersion?[9]) // Size
+                                                        {
+                                                            case 0x10:
+                                                                // DESFIRE 256B
+                                                                break;
+                                                            case 0x16:
+                                                                // DESFIRE 2K
+                                                                break;
+                                                            case 0x18:
+                                                                // 4K
+                                                                break;
+                                                            case 0x1A:
+                                                                // 8K
+                                                                break;
+                                                            case 0x1C:
+                                                                // 16K
+                                                                break;
+                                                            case 0x1E:
+                                                                // 32K
+                                                                break;
+                                                            default:
+                                                                break;
+                                                        }
+                                                    }
+                                                } // Get Version L4 Failed
+
+                                                else
+                                                {
+                                                    if (ATS.Length > 4)
+                                                    {
+                                                        if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x00, 0x35, 0xC7 }) != 0) //MF PlusS 4K in SL1
+                                                        {
+                                                            genericChipModel.CardType = ChipType.MifarePlus_SL3_4K;
+                                                        }
+
+                                                        else if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
+                                                        {
+                                                            genericChipModel.CardType = ChipType.MifarePlus_SL3_4K;
+                                                        }
+                                                        else
+                                                        {
+                                                            genericChipModel.CardType = ChipType.SmartMX_Mifare_4K;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        genericChipModel.CardType = ChipType.SmartMX_Mifare_4K;
+                                                    }
+                                                } // Mifare Plus
+                                            } // SAK b6 = 1 ?
+                                            else
+                                            {
+                                                genericChipModel.CardType = ChipType.MifareUltralight;
+                                            } // Ultralight || NTAG
+                                        }
+                                    } // SAK b5 = 1 ?
+                                } // SAK b5 = 1 ?
+                            }
+
+
+                        }
+                        break;
+
+                    default:
+
+                        break;
+                }
+                
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(string.Format("{0}: {1}; {2}", DateTime.Now, e.Message, e.InnerException != null ? e.InnerException.Message : ""), LogFacilityName);
+                LogWriter.CreateLogEntry(e, LogFacilityName);
             }
 
             return genericChipModel;
         }
         private ChipModel genericChipModel;
-
-        public Result ReadChipPublic()
-        {
-            try
-            {
-                var Result = DoTXRX(new byte[] { 0x04, 0x07, 0x64, 0x60, 0x09, 0x54, 0x01, 0xF4, 0x01 });
-                Result = DoTXRX(new byte[] { 0x05, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF });
-                Result = DoTXRX(new byte[] { 0x05, 0x00, 0x10 });
-                Result = DoTXRX(new byte[] { 0x0F, 0x12, 0x00 });
-            }
-            catch (Exception e)
-            {
-                /*if (readerProvider != null)
-                    readerProvider.release();
-*/
-                LogWriter.CreateLogEntry(string.Format("{0}: {1}; {2}", DateTime.Now, e.Message, e.InnerException != null ? e.InnerException.Message : ""), LogFacilityName);
-
-                return Result.NoError;
-            }
-
-            return Result.IOError;
-        }
 
         #endregion
 
@@ -186,142 +389,142 @@ namespace Elatec.NET
         }// End of GetPRSfromByteArray
         #endregion
 
-        private void ConnectTWN4(string PortName)
-        {
-            // Initialize serial port
-            TWNPort.PortName = PortName;
-            TWNPort.BaudRate = 9600;
-            TWNPort.DataBits = 8;
-            TWNPort.StopBits = System.IO.Ports.StopBits.One;
-            TWNPort.Parity = System.IO.Ports.Parity.None;
-            // NFC functions are known to take less than 2 second to execute.
-            TWNPort.ReadTimeout = 2000;
-            TWNPort.WriteTimeout = 2000;
-            TWNPort.NewLine = "\r";
-            // Open TWN4 com port
-            TWNPort.Open();
-        }// End of ConnectTWN4
-
-        private void DisconnectTWN4()
-        {
-            // Open TWN4 com port
-            TWNPort.Close();
-        }// End of DisconnectTWN4
-
         private byte[] DoTXRX(byte[] CMD)
         {
-            // Discard com port inbuffer
-            TWNPort.DiscardInBuffer();
-            // Generate simple protocol string and send command
-            TWNPort.WriteLine(GetPRSfromByteArray(CMD));
-            // Read simple protocoll string and convert to byte array
-            return GetByteArrayfromPRS(TWNPort.ReadLine());
+            using(SerialPort twnPort = new SerialPort())
+            {
+                // Initialize serial port
+                twnPort.PortName = GetTWNPortName(portNumber);
+                twnPort.BaudRate = 9600;
+                twnPort.DataBits = 8;
+                twnPort.StopBits = System.IO.Ports.StopBits.One;
+                twnPort.Parity = System.IO.Ports.Parity.None;
+                // NFC functions are known to take less than 2 second to execute.
+                twnPort.ReadTimeout = 2000;
+                twnPort.WriteTimeout = 2000;
+                twnPort.NewLine = "\r";
+                // Open TWN4 com port
+                twnPort.Open();
+
+                // Discard com port inbuffer
+                twnPort.DiscardInBuffer();
+                // Generate simple protocol string and send command
+                twnPort.WriteLine(GetPRSfromByteArray(CMD));
+                // Read simple protocoll string and convert to byte array
+                return GetByteArrayfromPRS(twnPort.ReadLine());
+            }
+
         }// End of DoTXRX
 
         #region Tools for connect TWN4
 
+        /// <summary>
+        /// Get Registry Value From Key
+        /// </summary>
+        /// <param name="SubKey"></param>
+        /// <param name="ValueName"></param>
+        /// <returns></returns>
+        private string RegHKLMQuerySZ(string SubKey, string ValueName)
+        {
+            string Data;
+
+            RegistryKey Key = Registry.LocalMachine.OpenSubKey(SubKey);
+            if (Key == null)
+                return "";
+            if (Key.GetValue(ValueName) != null)
+                Data = Key.GetValue(ValueName).ToString();
+            else
+                return "";
+            if (Data == "")
+                return "";
+            if (Key.GetValueKind(ValueName) != RegistryValueKind.String)
+                Data = "";
+            Key.Close();
+            return Data;
+        }// End of RegHKLMQuerySZ
+
+        /// <summary>
+        /// Get Device From Devices in Registry
+        /// </summary>
+        /// <param name="Driver"></param>
+        /// <param name="DevicePath"></param>
+        /// <returns></returns>
+        private string FindUSBDevice(string Driver, string DevicePath)
+        {
+            int PortIndex = 0;
+
+            while (true)
+            {
+                string Path = "SYSTEM\\CurrentControlSet\\Services\\" + Driver + "\\Enum";
+                string Data = RegHKLMQuerySZ(Path, PortIndex.ToString());
+                PortIndex++;
+                if (Data == "")
+                    return "";
+                string substr = Data.Substring(0, DevicePath.Length).ToUpper();
+                if (substr == DevicePath)
+                    return Data;
+            }
+        }// End of FindUSBDevice
+
+        /// <summary>
+        /// GetComPort from Devices
+        /// </summary>
+        /// <param name="Device"></param>
+        /// <returns></returns>
+        private int GetCOMPortNr(string Device)
+        {
+            string Path = "SYSTEM\\CurrentControlSet\\Enum\\" + Device + "\\Device Parameters";
+            string Data = RegHKLMQuerySZ(Path, "PortName");
+            if (Data == "")
+                return 0;
+            if (Data.Length < 4)
+                return 0;
+            int PortNr = Convert.ToUInt16(Data.Substring(3));
+            if (PortNr < 1 || PortNr > 256)
+                return 0;
+            return PortNr;
+        }// End of GetCOMPortNr
+
         private string GetTWNPortName(int PortNr)
         {
-            string PortName;
-            if (PortNr == 0)
+            string PortName = "";
+
+            try
             {
-                PortName = "";
+                string path = FindUSBDevice("usbser", "USB\\VID_09D8&PID_0420\\");
+
+                if (PortNr == 0)
+                {
+                    int portNumber = GetCOMPortNr(path);
+                    if (portNumber != 0)
+                    {
+                        PortNr = portNumber;
+                        PortName = string.Format("COM{0}", PortNr);
+                    }
+                    else
+                    {
+                        PortName = "";
+                    }
+                }
+                else
+                {
+                    return string.Format("COM{0}", PortNr);
+                }
+                return PortName;
             }
-            else
+            catch(Exception e)
             {
-                return string.Format("COM{0}", PortNr);
+                LogWriter.CreateLogEntry(e, LogFacilityName);
             }
+
             return PortName;
         }// End of GetTWNPortName
         #endregion
 
         #endregion
 
-        #region Tool for byte arrays
-        private byte[] AddByteArray(byte[] Source, byte[] Add)
-        {
-            // Is Source = null
-            if (Source == null)
-            {
-                // Yes, copy Add in Source
-                Source = Add;
-                // Return source
-                return Source;
-            }
-            // Initialize buffer array, with the length of Source and Add
-            byte[] buffer = new byte[Source.Length + Add.Length];
-            // Copy Source in buffer
-            for (int i = 0; i < Source.Length; i++)
-            {
-                // Copy source bytes to buffer
-                buffer[i] = Source[i];
-            }
-            // Add the secound array to buffer
-            for (int i = Source.Length; i < buffer.Length; i++)
-            {
-                // Copy Add bytes after the Source bytes in buffer
-                buffer[i] = Add[i - Source.Length];
-            }
-            // Return the combined array buffer
-            return buffer;
-        }// End of AddByteArray
-        private byte[] AddByte2Array(byte[] Source, byte Add)
-        {
-            if (Source == null)
-            {
-                return new byte[] { Add };
-            }
-            // Initialize buffer with the length of Source + 1
-            byte[] buffer = new byte[Source.Length + 1];
-            // Copy Source in buffer
-            for (int i = 0; i < Source.Length; i++)
-            {
-                // Copy Source bytes in buffer array
-                buffer[i] = Source[i];
-            }
-            // Add byte behind the Source
-            buffer[Source.Length] = Add;
-            // Return the buffer
-            return buffer;
-        }// End of AddByte2Array
-        private byte[] GetSegmentFromByteArray(byte[] Source, int index, int count)
-        {
-            // Initialize buffer with the segment size
-            byte[] buffer = new byte[count];
-            // Copy bytes from index until count
-            for (int i = index; i < (index + count); i++)
-            {
-                // Copy in segment buffer
-                buffer[i - index] = Source[i];
-            }
-            // Return segment buffer
-            return buffer;
-        }// End of GetSegmentFromByteArray
-        private bool CompareArraysSegments(byte[] Array1, int index1, byte[] Array2, int index2, int count)
-        {
-            // Plausibility check, is index + count longer than arran
-            if (((index1 + count) > Array1.Length) || ((index2 + count) > Array2.Length))
-            {
-                // Yes, return false
-                return false;
-            }
-            // Compare segments of count
-            for (int i = 0; i < count; i++)
-            {
-                // Is byte in Array1 == byte in Array2?
-                if (Array1[i + index1] != Array2[i + index2])
-                {
-                    // No, return flase
-                    return false;
-                }
-            }
-            // Return true
-            return true;
-        }// End of CompareArraysSegment
-        #endregion
-
         #region Public Properties
-
+        public byte[] Result { get; set; }
         #endregion
 
         #region DesFireCommands
@@ -332,26 +535,19 @@ namespace Elatec.NET
         }
 
         #endregion
+
         protected virtual void Dispose(bool disposing)
         {
             if (!_disposed)
             {
                 if (disposing)
                 {
-                    this.DisconnectTWN4();
-                    instance = null;
+                    //DisconnectTWN4();
+                    //instance = null;
+
                     // Dispose any managed objects
                     // ...
                 }
-
-                if (this != null)
-                {
-                    //readerUnit.Disconnect();
-                    //readerUnit.DisconnectFromReader();
-                }
-
-                // Now disposed of any unmanaged objects
-                // ...
 
                 Thread.Sleep(200);
                 _disposed = true;
@@ -360,8 +556,8 @@ namespace Elatec.NET
 
         public void Dispose()
         {
-            Dispose(true);
             GC.SuppressFinalize(this);
+            Dispose(true);
         }
 
     }

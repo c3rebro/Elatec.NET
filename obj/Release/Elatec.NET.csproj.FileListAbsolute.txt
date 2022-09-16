@@ -1,6 +1,9 @@
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Release\Elatec.NET.dll
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Release\Elatec.NET.pdb
+D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Release\ByteArray.dll
+D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Release\Log4CSharp.dll
+D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Release\Elatec.NET.csproj.AssemblyReference.cache
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Release\Elatec.NET.csproj.CoreCompileInputs.cache
+D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Release\Elatec.NET.csproj.CopyComplete
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Release\Elatec.NET.dll
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Release\Elatec.NET.pdb
-D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Release\Elatec.NET.csproj.AssemblyReference.cache

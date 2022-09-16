@@ -66,6 +66,12 @@
     <LangVersion>7.3</LangVersion>
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AssemblyOriginatorKeyFile>Elatec.NET.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -79,18 +85,25 @@
   <ItemGroup>
     <Compile Include="DataAccessLayer\Constants.cs" />
     <Compile Include="Elatec.NET.cs" />
-    <Compile Include="Model\MifareKey.cs" />
     <Compile Include="Model\ChipModel.cs" />
+    <Compile Include="Model\MifareKey.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Model\Commands\" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ByteArray\ByteArray.csproj">
+      <Project>{bdd5df8c-6fc1-4882-8151-924820fdbc05}</Project>
+      <Name>ByteArray</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Log4CSharp\Log4CSharp.csproj">
       <Project>{786d71e7-4d92-43e4-a9eb-4e07ffe36f70}</Project>
       <Name>Log4CSharp</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Elatec.NET.snk" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

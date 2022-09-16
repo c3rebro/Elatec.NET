@@ -12,16 +12,14 @@ namespace Elatec.NET.Model
         {
         }
 
-        public ChipModel(string uid, CARD_TYPE cardType)
+        public ChipModel(string uid, ChipType cardType)
         {
             ChipIdentifier = uid;
             CardType = cardType;
         }
 
-        public uint FreeMemory { get; set; }
-
         public string ChipIdentifier { get; set; }        
 
-        public CARD_TYPE CardType { get; set; }
+        public ChipType CardType { get; set; }
     }
 }
