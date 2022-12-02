@@ -94,6 +94,12 @@ namespace Elatec.NET
         DESFireEV1 = 0xC6,
         DESFireEV2 = 0xC7,
         DESFireEV3 = 0xC8,
+        SmartMX_DESFire_Generic = 0xC9,
+        SmartMX_DESFire_2K = 0xCA,
+        SmartMX_DESFire_4K = 0xCB,
+        SmartMX_DESFire_8K = 0xCC,
+        SmartMX_DESFire_16K = 0xCD,
+        SmartMX_DESFire_32K = 0xCE,
         DESFire_256 = 0xD0,
         DESFire_2K = 0xD1,
         DESFire_4K = 0xD2,
@@ -109,7 +115,9 @@ namespace Elatec.NET
         DESFireEV3_2K = 0xDC,
         DESFireEV3_4K = 0xDD,
         DESFireEV3_8K = 0xDE,
-        DESFireLight = 0xDF,
+        DESFireEV3_16K = 0xDF,
+        DESFireEV3_32K = 0xE0,
+        DESFireLight = 0xE1,
         SmartMX_Mifare_1K = 0xF9,
         SmartMX_Mifare_4K = 0xFA,
         MifareUltralight = 0xFB,
@@ -117,6 +125,22 @@ namespace Elatec.NET
         GENERIC_T_CL_A = 0xFF
     }
 
+    /// <summary>
+    /// Currently Available Error Conditions
+    /// </summary>
+    public enum ERROR
+    {
+        Empty,
+        NoError,
+        AuthenticationError,
+        NotReadyError,
+        IOError,
+        ItemAlreadyExistError,
+        IsNotTrue,
+        IsNotFalse,
+        OutOfMemory,
+        NotAllowed
+    }
 
     /// <summary>
     /// 
@@ -128,17 +152,28 @@ namespace Elatec.NET
     }
 
     /// <summary>
-    /// 
+    /// CRYPTOMODE_AES128 = 2,
+    /// CRYPTOMODE_3DES = 0
+    /// CRYPTOMODE_3K3DES = 1
     /// </summary>
-    public enum DESfireKeyType
+    
+    [Flags]
+    public enum DESFireKeyType
     {
-        DF_KEY_DES,
-        DF_KEY_3K3DES,
-        DF_KEY_AES
+        DF_KEY_DES = 0,
+        DF_KEY_3K3DES = 1,
+        DF_KEY_AES = 2
     }
 
     /// <summary>
-    /// 
+    /// KS_CHANGE_KEY_WITH_MK = 0,
+    /// KS_ALLOW_CHANGE_MK = 1,
+    /// KS_FREE_LISTING_WITHOUT_MK = 2,
+    /// KS_FREE_CREATE_DELETE_WITHOUT_MK = 4,
+    /// KS_CONFIGURATION_CHANGEABLE = 8,
+    /// KS_DEFAULT = 11,
+    /// KS_CHANGE_KEY_WITH_TARGETED_KEYNO = 224,
+    /// KS_CHANGE_KEY_FROZEN = 240
     /// </summary>
     [Flags]
     public enum DESFireKeySettings
@@ -154,7 +189,7 @@ namespace Elatec.NET
     }
 
 
-    public struct DESFireFileSettings
+    public class DESFireFileSettings
     {
         public byte[] accessRights;
         public byte FileType;
@@ -209,13 +244,6 @@ namespace Elatec.NET
         AuthenticationError,
         DeviceNotReadyError,
         IOError
-    }
-
-    public enum DESFireKeyType
-    {
-        DF_KEY_3K3DES,
-        DF_KEY_AES,
-        DF_KEY_DES
     }
 
     public enum TaskAccessRights

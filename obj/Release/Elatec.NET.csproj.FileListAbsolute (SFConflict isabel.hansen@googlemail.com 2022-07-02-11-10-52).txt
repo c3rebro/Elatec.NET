@@ -1,5 +1,0 @@
-D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Release\Elatec.NET.dll
-D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Release\Elatec.NET.pdb
-D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Release\Elatec.NET.csprojAssemblyReference.cache
-D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Release\Elatec.NET.dll
-D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Release\Elatec.NET.pdb
