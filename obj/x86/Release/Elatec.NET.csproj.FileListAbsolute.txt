@@ -1,0 +1,11 @@
+C:\Temp\Seafile\Elatec.NET\bin\x86\Release\Elatec.NET.dll
+C:\Temp\Seafile\Elatec.NET\bin\x86\Release\Elatec.NET.pdb
+C:\Temp\Seafile\Elatec.NET\bin\x86\Release\ByteArray.dll
+C:\Temp\Seafile\Elatec.NET\bin\x86\Release\Log4CSharp.dll
+C:\Temp\Seafile\Elatec.NET\bin\x86\Release\System.IO.Ports.dll
+C:\Temp\Seafile\Elatec.NET\bin\x86\Release\System.IO.Ports.xml
+C:\Temp\Seafile\Elatec.NET\obj\x86\Release\Elatec.NET.csproj.AssemblyReference.cache
+C:\Temp\Seafile\Elatec.NET\obj\x86\Release\Elatec.NET.csproj.CoreCompileInputs.cache
+C:\Temp\Seafile\Elatec.NET\obj\x86\Release\Elatec.NET.csproj.CopyComplete
+C:\Temp\Seafile\Elatec.NET\obj\x86\Release\Elatec.NET.dll
+C:\Temp\Seafile\Elatec.NET\obj\x86\Release\Elatec.NET.pdb

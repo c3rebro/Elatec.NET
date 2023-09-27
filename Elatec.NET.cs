@@ -1,25 +1,30 @@
 ﻿using Microsoft.Win32;
 
+using Log4CSharp;
+
 using System;
 using System.IO.Ports;
 using System.Globalization;
 using System.Threading;
+using System.Threading.Tasks;
 
 using Elatec.NET.Model;
 
-using Log4CSharp;
-
 using ByteArrayHelper.Extensions;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Collections;
-using ByteArrayHelper;
+
+using System.Diagnostics;
+using System.Net;
+using System.Runtime.InteropServices.WindowsRuntime;
+using System.Linq.Expressions;
+//using System.ComponentModel;
 /*
 * Elatec.NET is a C# library to easily Talk to Elatec's TWN4 Devices
 * 
 * Boolean "Results": Success = true, Failed = false
 * 
+* Some TWN4 Specific "Special" information:
 * 
+* Getting the ATS on different Readers works different.
 * 
 */
 
@@ -29,9 +34,9 @@ namespace Elatec.NET
     {
         private const bool RESULT_SUCCESS = true;
         private const bool RESULT_FAILED = false;
-        private string LogFacilityName = "RFiDGear";
+        private const string LogFacilityName = "Elatec.NET";
 
-        private int portNumber;
+        private protected int portNumber;
 
         private bool _disposed;
         private static readonly object syncRoot = new object();
@@ -45,22 +50,33 @@ namespace Elatec.NET
         private const string LEDON_CMD = "0411";
         private const string LEDOFF_CMD = "0412";
 
-        private const string MIFARELOGIN = "0B00";
-        private const string MIFAREREADBLOCK = "0B01";
-        private const string MIFAREWRITEBLOCK = "0B02";
-
-        private const string ISO14443_GET_ATS = "1200";
+        private const string MIFARE_CLASSIC_LOGIN = "0B00";
+        private const string MIFARE_CLASSIC_READBLOCK = "0B01";
+        private const string MIFARE_CLASSIC_WRITEBLOCK = "0B02";
 
         private const string MIFARE_DESFIRE_GETAPPIDS = "0F00";
         private const string MIFARE_DESFIRE_CREATEAPP = "0F01";
+        private const string MIFARE_DESFIRE_DELETEAPP = "0F02";
         private const string MIFARE_DESFIRE_SELECTAPP = "0F03";
         private const string MIFARE_DESFIRE_AUTH = "0F04";
         private const string MIFARE_DESFIRE_GETKEYSETTINGS = "0F05";
         private const string MIFARE_DESFIRE_GETFILEIDS = "0F06";
         private const string MIFARE_DESFIRE_GETFILESETTINGS = "0F07";
+        private const string MIFARE_DESFIRE_READDATA = "0F08";
         private const string MIFARE_DESFIRE_GETFREEMEMORY = "0F0E";
+        private const string MIFARE_DESFIRE_FORMATTAG = "0F0F";
+        private const string MIFARE_DESFIRE_CREATE_STDDATAFILE = "0F10";
+        private const string MIFARE_DESFIRE_DELETEFILE = "0F13";
 
-        private const string MIFARE_DESFIRE_COMMIT_TRNS = "0F1400";
+        private const string MIFARE_DESFIRE_CHANGEKEYSETTINGS = "0F18";
+        private const string MIFARE_DESFIRE_CHANGEKEY = "0F19";
+   
+        private const string ISO14443_GET_ATS = "1200";
+        private const string ISO14443_4_TXD = "1203";
+        private const string ISO14443_3_TXD = "1207";
+
+        private const string ISO_CMD_RATS = "E050BCA5FFFF00";
+
         #endregion
 
         public static TWN4ReaderDevice Instance
@@ -83,27 +99,71 @@ namespace Elatec.NET
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         public TWN4ReaderDevice()
         {
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="port"></param>
         public TWN4ReaderDevice(int port)
         {
             portNumber = port;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        public bool PortAccessDenied { get; private set; }
+
         #region Common
 
+        /// <summary>
+        /// 
+        /// </summary>
         public void Beep()
         {
-            Result = DoTXRX(new byte[] { 0x04, 0x07, 0x64, 0x60, 0x09, 0x54, 0x01, 0xF4, 0x01 }); 
+            BeepAsync().GetAwaiter().GetResult();
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="iterations"></param>
+        /// <param name="length"></param>
+        /// <param name="freq"></param>
+        /// <param name="vol"></param>
         public void Beep(ushort iterations, ushort length, ushort freq, byte vol)
+        {
+            BeepAsync(iterations, length, freq, vol).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public async Task BeepAsync()
+        {
+            Result = await DoTXRXAsync(new byte[] { 0x04, 0x07, 0x64, 0x60, 0x09, 0x54, 0x01, 0xF4, 0x01 }); 
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="iterations"></param>
+        /// <param name="length"></param>
+        /// <param name="freq"></param>
+        /// <param name="vol"></param>
+        /// <returns></returns>
+        public async Task BeepAsync(ushort iterations, ushort length, ushort freq, byte vol)
         {
             for (uint i = 0; i < iterations; i++)
             {
-                Result = DoTXRX(
+                Result = await DoTXRXAsync(
                     ByteConverter.GetBytesFrom(BEEP_CMD +
                     ByteConverter.GetStringFrom(vol) +
                     ByteConverter.GetStringFrom(BitConverter.GetBytes(freq)) +
@@ -113,88 +173,170 @@ namespace Elatec.NET
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="On"></param>
         public void GreenLED(bool On)
         {
-            Result = DoTXRX(
+            GreenLEDAsync(On).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="On"></param>
+        /// <returns></returns>
+        public async Task GreenLEDAsync(bool On)
+        {
+            Result = await DoTXRXAsync(
                     ByteConverter.GetBytesFrom(LEDINIT_CMD +
                     ByteConverter.GetStringFrom(0x0F))
                     );
             if(On)
             {
-                Result = DoTXRX(
+                Result = await DoTXRXAsync(
                     ByteConverter.GetBytesFrom(LEDON_CMD +
                     ByteConverter.GetStringFrom(0x02))
                     );
             }
             else
             {
-                Result = DoTXRX(
+                Result = await DoTXRXAsync(
                     ByteConverter.GetBytesFrom(LEDOFF_CMD +
                     ByteConverter.GetStringFrom(0x02))
                     );
             }
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="On"></param>
         public void RedLED(bool On)
         {
-            Result = DoTXRX(
+            RedLEDAsync(On).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="On"></param>
+        /// <returns></returns>
+        public async Task RedLEDAsync(bool On)
+        {
+            Result = await DoTXRXAsync(
                     ByteConverter.GetBytesFrom(LEDINIT_CMD +
                     ByteConverter.GetStringFrom(0x0F))
                     );
             if (On)
             {
-                Result = DoTXRX(
+                Result = await DoTXRXAsync(
                     ByteConverter.GetBytesFrom(LEDON_CMD +
                     ByteConverter.GetStringFrom(0x01))
                     );
             }
             else
             {
-                Result = DoTXRX(
+                Result = await DoTXRXAsync(
                     ByteConverter.GetBytesFrom(LEDOFF_CMD +
                     ByteConverter.GetStringFrom(0x01))
                     );
             }
         }
 
-        public ChipModel GetSingleChip()
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hf"></param>
+        /// <returns></returns>
+        public ChipModel GetSingleChip(bool hf)
+        {
+            return GetSingleChipAsync(hf, false).Result;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hf"></param>
+        /// <returns></returns>
+        public async Task<ChipModel> GetSingleChipAsync(bool hf)
+        {
+            return await GetSingleChipAsync(hf, false);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hf"></param>
+        /// <param name="legicOnly"></param>
+        /// <returns></returns>
+        public ChipModel GetSingleChip(bool hf, bool legicOnly)
+        {
+            return GetSingleChipAsync(hf, legicOnly).Result;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="hf"></param>
+        /// <param name="legicOnly"></param>
+        /// <returns></returns>
+        public async Task<ChipModel> GetSingleChipAsync(bool hf, bool legicOnly)
         {
             try
             {
-                genericChipModel = new ChipModel();
+                var currentChip = new ChipModel();
 
                 SAK = 0x00;
                 ATS = new byte[1] {0x00};
 
-                Result = DoTXRX(new byte[] { 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF }); //SetChipTypes (HF onyl) DoTXRX(new byte[] { 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF });
-                Result = DoTXRX(new byte[] { 0x05, 0x00, 0x20}); //GetChip  //
-
-                if (Result?.Length >= 3)
+                if (hf)
                 {
-                    genericChipModel.CardType = (ChipType)Result[2];
+                    Result = await DoTXRXAsync(new byte[] { 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0xF7, 0xFF, 0xFF, 0xFF }); //SetChipTypes (HF Only)
                 }
                 else
                 {
-                    Result = DoTXRX(new byte[] { 0x12, 0x08, 0xFF }); //GetChip UID if GetChip failed (SmartMX)
+                    Result = await DoTXRXAsync(new byte[] { 0x05, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00 }); //Set Chip Types (LF Only)
                 }
 
-                genericChipModel.ChipIdentifier = ByteConverter.GetStringFrom(Result, 5);
+                if (legicOnly)
+                {
+                    Result = await DoTXRXAsync(new byte[] { 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00 }); //SetChipTypes (Legic Only)
+                }
 
-                switch (genericChipModel.CardType)
+                Result = await DoTXRXAsync(new byte[] { 0x05, 0x00, 0x20}); //GetChip
+
+                if (Result?.Length >= 3)
+                {
+                    currentChip.CardType = (ChipType)Result[2];
+                }
+                else if(hf)
+                {
+                    Result = await DoTXRXAsync(new byte[] { 0x12, 0x08, 0xFF }); //GetChip UID if GetChip failed (SmartMX elatec workaround) 
+                }
+                else if (legicOnly)
+                {
+                    Result = await DoTXRXAsync(new byte[] { 0x12, 0x08, 0xFF }); //GetChip UID if GetChip failed (SmartMX elatec workaround) 
+                }
+
+                currentChip.UID = ByteConverter.GetStringFrom(Result, 5);  //BitConverter.ToString(Result, 5, Result.Length-5);
+
+                switch (currentChip.CardType)
                 {
                     case ChipType.NOTAG:
                     case ChipType.MIFARE: //Start Mifare Identification Process
 
-                        Result = DoTXRX(new byte[] { 0x12, 0x05 }); //GetSAK
+                        Result = await DoTXRXAsync(new byte[] { 0x12, 0x05 }); //GetSAK
 
-                        if (Result?.Length == 3)
+                        if (Result?.Length == 3 && Result[2] != 0x00)
                         {
                             SAK = Result[2];
                             
                             // Start MIFARE identification
                             if ((SAK & 0x02) == 0x02)
                             {
-                                genericChipModel.CardType = ChipType.Unspecified;
+                                currentChip.CardType = ChipType.Unspecified;
                             } // RFU bit set (RFU = Reserved for Future Use)
 
                             else
@@ -205,36 +347,57 @@ namespace Elatec.NET
                                     {
                                         if ((SAK & 0x01) == 0x01)
                                         {
-                                            genericChipModel.CardType = ChipType.Mifare2K;
+                                            currentChip.CardType = ChipType.Mifare2K;
                                         } // // SAK b1 = 1 ? >> Mifare Classic 2K
                                         else
                                         {
                                             if ((SAK & 0x20) == 0x20)
                                             {
-                                                genericChipModel.CardType = ChipType.SmartMX_Mifare_4K;
+                                                currentChip.CardType = ChipType.SmartMX_Mifare_4K;
                                             } // SAK b6 = 1 ?  >> SmartMX Classic 4K
                                             else
                                             {
                                                 //Get ATS - Switch to L4 ?
-                                                ATS = DoTXRX(ByteConverter.GetBytesFrom(ISO14443_GET_ATS + "40"));
+                                                var response = await DoTXRXAsync(
+                                                    ByteConverter.GetBytesFrom(
+                                                        ISO14443_3_TXD +
+                                                        "04" +
+                                                        ISO_CMD_RATS
+                                                    ));
+
+                                                if (response != null && response.Length <= 4)
+                                                {
+                                                    response = await DoTXRXAsync(ByteConverter.GetBytesFrom(ISO14443_GET_ATS + "20"));
+                                                    ATS = new byte[response.Length - 2];
+                                                }
+                                                else if (response != null && response.Length >= 5)
+                                                {
+                                                    ATS = new byte[response.Length - 2];
+                                                }
+                                                else
+                                                {
+                                                    ATS = new byte[1] { 0x00 };
+                                                }
+
+                                                Buffer.BlockCopy(response, 2, ATS, 0, response.Length - 2);
 
                                                 if (ATS.Length > 4)
                                                 {
                                                     if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x00, 0x35, 0xC7 }) != 0) //MF PlusS 4K in SL1
                                                     {
-                                                        genericChipModel.CardType = ChipType.MifarePlus_SL1_4K;
+                                                        currentChip.CardType = ChipType.MifarePlus_SL1_4K;
                                                     }
 
                                                     else if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
                                                     {
-                                                        genericChipModel.CardType = ChipType.MifarePlus_SL1_4K;
+                                                        currentChip.CardType = ChipType.MifarePlus_SL1_4K;
                                                     }
 
                                                 } // Mifare Plus S / Plus X 4K
 
                                                 else
                                                 {
-                                                    genericChipModel.CardType = ChipType.Mifare4K;
+                                                    currentChip.CardType = ChipType.Mifare4K;
                                                 } //Error on ATS = Mifare Classic 4K
                                                 break;
                                             }
@@ -244,40 +407,65 @@ namespace Elatec.NET
                                     {
                                         if ((SAK & 0x01) == 0x01)
                                         {
-                                            genericChipModel.CardType = ChipType.MifareMini;
+                                            currentChip.CardType = ChipType.MifareMini;
                                         } // // SAK b1 = 1 ? >> Mifare Mini
                                         else
                                         {
                                             if ((SAK & 0x20) == 0x20)
                                             {
-                                                genericChipModel.CardType = ChipType.SmartMX_Mifare_1K;
+                                                currentChip.CardType = ChipType.SmartMX_Mifare_1K;
                                             } // // SAK b6 = 1 ? >> SmartMX Classic 1K
                                             else
                                             {
-                                                ATS = DoTXRX(ByteConverter.GetBytesFrom(ISO14443_GET_ATS + "40"));
+                                                //Get ATS - Switch to L4 ?
+                                                var response = await DoTXRXAsync(
+                                                    ByteConverter.GetBytesFrom(
+                                                        ISO14443_3_TXD +
+                                                        "04" +
+                                                        ISO_CMD_RATS
+                                                    ));
+
+                                                if (response != null && response.Length <= 4)
+                                                {
+                                                    response = await DoTXRXAsync(ByteConverter.GetBytesFrom(ISO14443_GET_ATS + "20"));
+                                                    ATS = new byte[response.Length - 2];
+                                                }
+                                                else if (response != null && response.Length >= 5)
+                                                {
+                                                    ATS = new byte[response.Length - 2];
+                                                }
+                                                else
+                                                {
+                                                    ATS = new byte[1] { 0x00 };
+                                                }
+                                                Buffer.BlockCopy(response, 2, ATS, 0, response.Length - 2);
 
                                                 if (ATS.Length > 4)
                                                 {
                                                     if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x00, 0x35, 0xC7 }) != 0) //MF PlusS 4K in SL1
                                                     {
-                                                        genericChipModel.CardType = ChipType.MifarePlus_SL1_2K;
+                                                        currentChip.CardType = ChipType.MifarePlus_SL1_2K;
                                                     }
 
                                                     else if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
                                                     {
-                                                        genericChipModel.CardType = ChipType.MifarePlus_SL1_2K;
+                                                        currentChip.CardType = ChipType.MifarePlus_SL1_2K;
                                                     }
 
                                                     else if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x21, 0x30, 0x00, 0xF6, 0xD1 }) != 0) //MF PlusSE 1K
                                                     {
-                                                        genericChipModel.CardType = ChipType.MifarePlus_SL0_1K;
+                                                        currentChip.CardType = ChipType.MifarePlus_SL0_1K;
                                                     }
 
+                                                    else
+                                                    {
+                                                        currentChip.CardType = ChipType.MifarePlus_SL1_1K;
+                                                    }
                                                 } // Mifare Plus S / Plus X 4K
 
                                                 else
                                                 {
-                                                    genericChipModel.CardType = ChipType.Mifare1K;
+                                                    currentChip.CardType = ChipType.Mifare1K;
                                                 } //Error on ATS = Mifare Classic 1K
                                             } // Mifare Plus; Historical Bytes ?
                                         }
@@ -289,11 +477,11 @@ namespace Elatec.NET
                                     {
                                         if ((Result[2] & 0x01) == 0x01)
                                         {
-                                            genericChipModel.CardType = ChipType.MifarePlus_SL2_4K;
+                                            currentChip.CardType = ChipType.MifarePlus_SL2_4K;
                                         } // Mifare Plus 4K in SL2
                                         else
                                         {
-                                            genericChipModel.CardType = ChipType.MifarePlus_SL2_2K;
+                                            currentChip.CardType = ChipType.MifarePlus_SL2_2K;
                                         } // Mifare Plus 2K in SL2
                                     }
                                     else
@@ -306,30 +494,55 @@ namespace Elatec.NET
                                         {
                                             if ((SAK & 0x20) == 0x20)
                                             {
-                                                ATS = DoTXRX(ByteConverter.GetBytesFrom(ISO14443_GET_ATS + "40"));
+                                                //Get ATS - Switch to L4 ?
+                                                var response = await DoTXRXAsync(
+                                                    ByteConverter.GetBytesFrom(
+                                                        ISO14443_3_TXD +
+                                                        "04" +
+                                                        ISO_CMD_RATS
+                                                    ));
 
-                                                var getVersion = DoTXRX(new byte[] { 0x12, 0x03, 0x01, 0x60, 0x20 }); //issue GetVersion
+                                                if (response != null && response.Length <= 4)
+                                                {
+                                                    response = await DoTXRXAsync(ByteConverter.GetBytesFrom(ISO14443_GET_ATS + "20"));
+                                                    ATS = new byte[response.Length - 2];
+                                                }
+                                                else if (response != null && response.Length >= 5)
+                                                {
+                                                    ATS = new byte[response.Length - 2];
+                                                }
+                                                else
+                                                {
+                                                    ATS = new byte[1] { 0x00 };
+                                                }
+
+                                                Buffer.BlockCopy(response, 2, ATS, 0, response.Length - 2);
+                                                Result = await DoTXRXAsync(new byte[] { 0x05, 0x00, 0x20 }); //GetChip
+                                                var getVersion = await DoTXRXAsync(new byte[] { 0x12, 0x03, 0x01, 0x60, 0x20 }); //issue GetVersion
 
                                                 if (getVersion?.Length > 4 && getVersion?[3] == 0xAF)
                                                 {
+                                                    L4VERSION = new byte[getVersion.Length - 2];
+                                                    Buffer.BlockCopy(getVersion, 2, L4VERSION, 0, getVersion.Length - 2);
+
                                                     // Mifare Plus EV1/2 || DesFire || NTAG
                                                     if (getVersion?.Length > 1 && (getVersion?[5] == 0x01)) // DESFIRE
                                                     {
                                                         switch (getVersion?[7] & 0x0F) // Desfire(Sub)Type by lower Nibble of Major Version
                                                         {
                                                             case 0: //DESFIRE EV0
-                                                                genericChipModel.CardType = ChipType.DESFire;
+                                                                currentChip.CardType = ChipType.DESFire;
 
                                                                 switch (getVersion?[9])
                                                                 {
                                                                     case 0x10:
-                                                                        genericChipModel.CardType = ChipType.DESFire_256; // DESFIRE 256B
+                                                                        currentChip.CardType = ChipType.DESFire_256; // DESFIRE 256B
                                                                         break;
                                                                     case 0x16:
-                                                                        genericChipModel.CardType = ChipType.DESFire_2K; // DESFIRE 2K
+                                                                        currentChip.CardType = ChipType.DESFire_2K; // DESFIRE 2K
                                                                         break;
                                                                     case 0x18:
-                                                                        genericChipModel.CardType = ChipType.DESFire_4K; // 4K
+                                                                        currentChip.CardType = ChipType.DESFire_4K; // 4K
                                                                         break;
                                                                     default:
                                                                         break;
@@ -337,21 +550,21 @@ namespace Elatec.NET
                                                                 break;
 
                                                             case 1: // DESFIRE EV1
-                                                                genericChipModel.CardType = ChipType.DESFireEV1;
+                                                                currentChip.CardType = ChipType.DESFireEV1;
 
                                                                 switch (getVersion?[9])
                                                                 {
                                                                     case 0x10:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV1_256; //DESFIRE 256B
+                                                                        currentChip.CardType = ChipType.DESFireEV1_256; //DESFIRE 256B
                                                                         break;
                                                                     case 0x16:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV1_2K; // DESFIRE 2K
+                                                                        currentChip.CardType = ChipType.DESFireEV1_2K; // DESFIRE 2K
                                                                         break;
                                                                     case 0x18:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV1_4K; // 4K
+                                                                        currentChip.CardType = ChipType.DESFireEV1_4K; // 4K
                                                                         break;
                                                                     case 0x1A:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV1_8K; // 8K
+                                                                        currentChip.CardType = ChipType.DESFireEV1_8K; // 8K
                                                                         break;
                                                                     default:
                                                                         break;
@@ -359,24 +572,24 @@ namespace Elatec.NET
                                                                 break;
 
                                                             case 2: // EV2
-                                                                genericChipModel.CardType = ChipType.DESFireEV2;
+                                                                currentChip.CardType = ChipType.DESFireEV2;
 
                                                                 switch (getVersion?[9])
                                                                 {
                                                                     case 0x16:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV2_2K; // DESFIRE 2K
+                                                                        currentChip.CardType = ChipType.DESFireEV2_2K; // DESFIRE 2K
                                                                         break;
                                                                     case 0x18:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV2_4K; // 4K
+                                                                        currentChip.CardType = ChipType.DESFireEV2_4K; // 4K
                                                                         break;
                                                                     case 0x1A:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV2_8K; // 8K
+                                                                        currentChip.CardType = ChipType.DESFireEV2_8K; // 8K
                                                                         break;
                                                                     case 0x1C:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV2_16K; // 16K
+                                                                        currentChip.CardType = ChipType.DESFireEV2_16K; // 16K
                                                                         break;
                                                                     case 0x1E:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV2_32K; // 32K
+                                                                        currentChip.CardType = ChipType.DESFireEV2_32K; // 32K
                                                                         break;
                                                                     default:
                                                                         break;
@@ -384,24 +597,24 @@ namespace Elatec.NET
                                                                 break;
 
                                                             case 3: // EV3
-                                                                genericChipModel.CardType = ChipType.DESFireEV3;
+                                                                currentChip.CardType = ChipType.DESFireEV3;
 
                                                                 switch (getVersion?[9])
                                                                 {
                                                                     case 0x16:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV3_2K; // DESFIRE 2K
+                                                                        currentChip.CardType = ChipType.DESFireEV3_2K; // DESFIRE 2K
                                                                         break;
                                                                     case 0x18:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV3_4K; // 4K
+                                                                        currentChip.CardType = ChipType.DESFireEV3_4K; // 4K
                                                                         break;
                                                                     case 0x1A:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV3_8K; // 8K
+                                                                        currentChip.CardType = ChipType.DESFireEV3_8K; // 8K
                                                                         break;
                                                                     case 0x1C:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV3_16K; // 16K
+                                                                        currentChip.CardType = ChipType.DESFireEV3_16K; // 16K
                                                                         break;
                                                                     case 0x1E:
-                                                                        genericChipModel.CardType = ChipType.DESFireEV3_32K; // 32K
+                                                                        currentChip.CardType = ChipType.DESFireEV3_32K; // 32K
                                                                         break;
                                                                     default:
                                                                         break;
@@ -409,7 +622,7 @@ namespace Elatec.NET
                                                                 break;
 
                                                             default:
-                                                                genericChipModel.CardType = ChipType.Unspecified;
+                                                                currentChip.CardType = ChipType.Unspecified;
 
                                                                 break;
                                                         }
@@ -419,18 +632,18 @@ namespace Elatec.NET
                                                         switch (getVersion?[7] & 0x0F) // Desfire(Sub)Type by lower Nibble of Major Version
                                                         {
                                                             case 0: //DESFIRE EV0
-                                                                genericChipModel.CardType = ChipType.SmartMX_DESFire_Generic;
+                                                                currentChip.CardType = ChipType.SmartMX_DESFire_Generic;
 
                                                                 switch (getVersion?[9])
                                                                 {
                                                                     case 0x10:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_Generic; // DESFIRE 256B
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_Generic; // DESFIRE 256B
                                                                         break;
                                                                     case 0x16:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_2K; // DESFIRE 2K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_2K; // DESFIRE 2K
                                                                         break;
                                                                     case 0x18:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_4K; // 4K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_4K; // 4K
                                                                         break;
                                                                     default:
                                                                         break;
@@ -438,21 +651,21 @@ namespace Elatec.NET
                                                                 break;
 
                                                             case 1: // DESFIRE EV1
-                                                                genericChipModel.CardType = ChipType.SmartMX_DESFire_Generic;
+                                                                currentChip.CardType = ChipType.SmartMX_DESFire_Generic;
 
                                                                 switch (getVersion?[9])
                                                                 {
                                                                     case 0x10:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_Generic; //DESFIRE 256B
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_Generic; //DESFIRE 256B
                                                                         break;
                                                                     case 0x16:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_2K; // DESFIRE 2K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_2K; // DESFIRE 2K
                                                                         break;
                                                                     case 0x18:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_4K; // 4K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_4K; // 4K
                                                                         break;
                                                                     case 0x1A:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_8K; // 8K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_8K; // 8K
                                                                         break;
                                                                     default:
                                                                         break;
@@ -460,24 +673,24 @@ namespace Elatec.NET
                                                                 break;
 
                                                             case 2: // EV2
-                                                                genericChipModel.CardType = ChipType.SmartMX_DESFire_Generic;
+                                                                currentChip.CardType = ChipType.SmartMX_DESFire_Generic;
 
                                                                 switch (getVersion?[9])
                                                                 {
                                                                     case 0x16:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_2K; // DESFIRE 2K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_2K; // DESFIRE 2K
                                                                         break;
                                                                     case 0x18:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_4K; // 4K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_4K; // 4K
                                                                         break;
                                                                     case 0x1A:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_8K; // 8K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_8K; // 8K
                                                                         break;
                                                                     case 0x1C:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_16K; // 16K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_16K; // 16K
                                                                         break;
                                                                     case 0x1E:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_32K; // 32K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_32K; // 32K
                                                                         break;
                                                                     default:
                                                                         break;
@@ -485,24 +698,24 @@ namespace Elatec.NET
                                                                 break;
 
                                                             case 3: // EV3
-                                                                genericChipModel.CardType = ChipType.SmartMX_DESFire_Generic;
+                                                                currentChip.CardType = ChipType.SmartMX_DESFire_Generic;
 
                                                                 switch (getVersion?[9])
                                                                 {
                                                                     case 0x16:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_2K; // DESFIRE 2K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_2K; // DESFIRE 2K
                                                                         break;
                                                                     case 0x18:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_4K; // 4K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_4K; // 4K
                                                                         break;
                                                                     case 0x1A:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_8K; // 8K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_8K; // 8K
                                                                         break;
                                                                     case 0x1C:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_16K; // 16K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_16K; // 16K
                                                                         break;
                                                                     case 0x1E:
-                                                                        genericChipModel.CardType = ChipType.SmartMX_DESFire_32K; // 32K
+                                                                        currentChip.CardType = ChipType.SmartMX_DESFire_32K; // 32K
                                                                         break;
                                                                     default:
                                                                         break;
@@ -510,7 +723,7 @@ namespace Elatec.NET
                                                                 break;
 
                                                             default:
-                                                                genericChipModel.CardType = ChipType.Unspecified;
+                                                                currentChip.CardType = ChipType.Unspecified;
 
                                                                 break;
                                                         }
@@ -523,27 +736,27 @@ namespace Elatec.NET
                                                     {
                                                         if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x00, 0x35, 0xC7 }) != 0) //MF PlusS 4K in SL1
                                                         {
-                                                            genericChipModel.CardType = ChipType.MifarePlus_SL3_4K;
+                                                            currentChip.CardType = ChipType.MifarePlus_SL3_4K;
                                                         }
 
                                                         else if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
                                                         {
-                                                            genericChipModel.CardType = ChipType.MifarePlus_SL3_4K;
+                                                            currentChip.CardType = ChipType.MifarePlus_SL3_4K;
                                                         }
                                                         else
                                                         {
-                                                            genericChipModel.CardType = ChipType.SmartMX_Mifare_4K;
+                                                            currentChip.CardType = ChipType.Unspecified;
                                                         }
                                                     }
                                                     else
                                                     {
-                                                        genericChipModel.CardType = ChipType.SmartMX_Mifare_4K;
+                                                        currentChip.CardType = ChipType.SmartMX_Mifare_4K;
                                                     }
                                                 } // Mifare Plus
                                             } // SAK b6 = 1 ?
                                             else
                                             {
-                                                genericChipModel.CardType = ChipType.MifareUltralight;
+                                                currentChip.CardType = ChipType.MifareUltralight;
                                             } // Ultralight || NTAG
                                         }
                                     } // SAK b5 = 1 ?
@@ -557,22 +770,29 @@ namespace Elatec.NET
                     default:
 
                         break;
-                }
-                
+                } // Get Tag
+
+                genericChipModel = 
+                    new ChipModel(
+                        currentChip.UID, 
+                        currentChip.CardType, 
+                        ByteConverter.GetStringFrom(SAK), 
+                        ByteConverter.GetStringFrom(ATS), 
+                        ByteConverter.GetStringFrom(L4VERSION)
+                    );
             }
             catch (Exception e)
             {
                 LogWriter.CreateLogEntry(e, LogFacilityName);
             }
 
-            if (genericChipModel.CardType != ChipType.NOTAG)
+            if (genericChipModel?.CardType != ChipType.NOTAG)
             {
-                GreenLED(true);
-                RedLED(false);
+
             }
             else
             {
-                RedLED(true);
+
             }
 
             return genericChipModel;
@@ -583,9 +803,22 @@ namespace Elatec.NET
 
         #region Reader Communication
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
         public bool Connect()
         {
-            return (DoTXRX(null)[0] == 0x01); 
+            return ConnectAsync().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public async Task<bool> ConnectAsync()
+        {
+            return (await DoTXRXAsync(new byte[] { 0 }))?[0] == 0x01; 
         }
 
         #region Tools for Simple Protocol
@@ -630,7 +863,22 @@ namespace Elatec.NET
         }// End of GetPRSfromByteArray
         #endregion
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="CMD"></param>
+        /// <returns></returns>
         private byte[] DoTXRX(byte[] CMD)
+        {
+            return DoTXRXAsync(CMD).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="CMD"></param>
+        /// <returns></returns>
+        private async Task<byte[]> DoTXRXAsync(byte[] CMD)
         {
             try
             {
@@ -646,37 +894,85 @@ namespace Elatec.NET
                     twnPort.ReadTimeout = 2000;
                     twnPort.WriteTimeout = 2000;
                     twnPort.NewLine = "\r";
-            
-                    // Open TWN4 com port
-                    twnPort.Open();
+                    twnPort.ErrorReceived += TXRXErr;
+
+                    Func<Task> toDo = async () =>
+                    {
+                        try
+                        {
+                            // Open TWN4 com port
+                            twnPort.Open();
+                            PortAccessDenied = false;
+                            return;
+                        }
+                        catch (Exception e)
+                        {
+                            //Port Busy? Try Again
+                            if (e is UnauthorizedAccessException)
+                            {
+                                for (int i = 0; i <= 2; i++)
+                                {
+                                    await Task.Delay(1000).ConfigureAwait(false);
+                                    // Open TWN4 com port
+                                    try
+                                    {
+                                        twnPort.Open();
+                                        PortAccessDenied = false;
+                                        break;
+                                    }
+                                    // Force Open
+                                    catch (Exception e2)
+                                    {
+                                        PortAccessDenied = true;
+                                        LogWriter.CreateLogEntry(e2, LogFacilityName);
+                                    };
+                                }  
+                            }
+                        }
+                    };
+                    await toDo().ConfigureAwait(false);
 
                     IsConnected = twnPort.IsOpen;
 
-                    if (CMD != null)
+                    if (CMD?[0] != 0 && IsConnected)
                     {
                         // Discard com port inbuffer
                         twnPort.DiscardInBuffer();
                         // Generate simple protocol string and send command
                         twnPort.WriteLine(GetPRSfromByteArray(CMD));
                         // Read simple protocoll string and convert to byte array
-                        return GetByteArrayfromPRS(twnPort.ReadLine());
+                        var ret = GetByteArrayfromPRS(twnPort.ReadLine());
+
+                        twnPort.Close();
+
+                        return ret;
                     }
 
                     else
                     {
-                        return new byte[] {0x00};
+                        return new byte[] { 0x01 };
                     }
-
                 }
             }
 
             catch
             {
                 this.Dispose();
-                return null;
+                return new byte[] { 0x00 }; ;
             }
 
-        }// End of DoTXRX
+        }// End of DoTXRXAsync
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void TXRXErr(object sender, EventArgs e)
+        {
+            Debug.WriteLine(e.ToString());
+            return;
+        }
 
         #region Tools for connect TWN4
 
@@ -688,20 +984,28 @@ namespace Elatec.NET
         /// <returns></returns>
         private string RegHKLMQuerySZ(string SubKey, string ValueName)
         {
-            string Data;
+            string Data = "";
 
-            RegistryKey Key = Registry.LocalMachine.OpenSubKey(SubKey);
-            if (Key == null)
-                return "";
-            if (Key.GetValue(ValueName) != null)
-                Data = Key.GetValue(ValueName).ToString();
-            else
-                return "";
-            if (Data == "")
-                return "";
-            if (Key.GetValueKind(ValueName) != RegistryValueKind.String)
-                Data = "";
-            Key.Close();
+            try
+            {
+                RegistryKey Key = Registry.LocalMachine.OpenSubKey(SubKey);
+                if (Key == null)
+                    return "";
+                if (Key.GetValue(ValueName) != null)
+                    Data = Key.GetValue(ValueName).ToString();
+                else
+                    return "";
+                if (Data == "")
+                    return "";
+                if (Key.GetValueKind(ValueName) != RegistryValueKind.String)
+                    Data = "";
+                Key.Close();
+            }
+            catch (Exception ex)
+            {
+                LogWriter.CreateLogEntry(ex, LogFacilityName);
+            }
+
             return Data;
         }// End of RegHKLMQuerySZ
 
@@ -715,17 +1019,39 @@ namespace Elatec.NET
         {
             int PortIndex = 0;
 
-            while (true)
+            try
             {
-                string Path = "SYSTEM\\CurrentControlSet\\Services\\" + Driver + "\\Enum";
-                string Data = RegHKLMQuerySZ(Path, PortIndex.ToString());
-                PortIndex++;
-                if (Data == "")
-                    return "";
-                string substr = Data.Substring(0, DevicePath.Length).ToUpper();
-                if (substr == DevicePath)
-                    return Data;
+                while (true)
+                {
+                    string Path = "SYSTEM\\CurrentControlSet\\Services\\" + Driver + "\\Enum";
+                    string Data = RegHKLMQuerySZ(Path, PortIndex.ToString());
+                    string secondData = RegHKLMQuerySZ(Path, (PortIndex + 1).ToString());
+
+                    if (Data == "")
+                    {
+                        return "";
+                    }
+                    else if ((Data.Substring(0, DevicePath.Length).ToUpper() == DevicePath) && secondData == "")
+                    {
+                        MoreThanOneReader = false;
+                        return Data;
+                    }
+                    else if ((Data.Substring(0, DevicePath.Length).ToUpper() == DevicePath) && secondData != "")
+                    {
+                        MoreThanOneReader = true;
+                        return Data;
+                    }    
+                    else
+                    {
+                        return "";
+                    }
+                }
             }
+            catch (Exception ex)
+            {
+                LogWriter.CreateLogEntry(ex, LogFacilityName);
+            }
+            return "";
         }// End of FindUSBDevice
 
         /// <summary>
@@ -735,16 +1061,33 @@ namespace Elatec.NET
         /// <returns></returns>
         private int GetCOMPortNr(string Device)
         {
-            string Path = "SYSTEM\\CurrentControlSet\\Enum\\" + Device + "\\Device Parameters";
-            string Data = RegHKLMQuerySZ(Path, "PortName");
-            if (Data == "")
-                return 0;
-            if (Data.Length < 4)
-                return 0;
-            int PortNr = Convert.ToUInt16(Data.Substring(3));
-            if (PortNr < 1 || PortNr > 256)
-                return 0;
-            return PortNr;
+            string Path, Data;
+
+            try
+            {
+                Path = "SYSTEM\\CurrentControlSet\\Enum\\" + Device + "\\Device Parameters";
+                Data = RegHKLMQuerySZ(Path, "PortName");
+
+                if (Data == "" || Data.Length < 4)
+                {
+                    return 0;
+                }
+
+                int PortNr = Convert.ToUInt16(Data.Substring(3));
+
+                if (PortNr < 1 || PortNr > 256)
+                {
+                    return 0;
+                }
+
+                return PortNr;
+            }
+            catch(Exception ex)
+            {
+                LogWriter.CreateLogEntry(ex, LogFacilityName);
+            }
+
+            return 0;
         }// End of GetCOMPortNr
 
         private string GetTWNPortName(int PortNr)
@@ -786,6 +1129,11 @@ namespace Elatec.NET
         #endregion
 
         #region Public Properties
+        public bool MoreThanOneReader
+        {
+            get; set;
+        }
+
         public byte[] Result
         {
             get; set;
@@ -820,9 +1168,31 @@ namespace Elatec.NET
         {
             get; private set;
         }
+
+        public byte[] L4VERSION
+        {
+            get; private set;
+        }
+
+        public byte[] ChipIdentifier
+        {
+            get; private set;
+        }
         #endregion
 
         #region ClassicCommands
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="keyType"></param>
+        /// <param name="sectorNumber"></param>
+        /// <returns></returns>
+        public bool MifareClassicLogin(string key, byte keyType, byte sectorNumber)
+        {
+            return MifareClassicLoginAsync(key, keyType, sectorNumber).GetAwaiter().GetResult();
+        }
 
         /// <summary>
         /// 
@@ -831,15 +1201,15 @@ namespace Elatec.NET
         /// <param name="keyType">The KeyType. Keytype: KEY_A = 0, KEY_B = 1</param>
         /// <param name="sectorNumber"></param>
         /// <returns>Success = true, false otherwise</returns>
-        public bool MifareClassicLogin(string key, byte keyType, byte sectorNumber)
+        public async Task<bool> MifareClassicLoginAsync(string key, byte keyType, byte sectorNumber)
         {
             try
             {
-                Result = DoTXRX(new byte[] { 0x05, 0x00, 0x20 }); //GetChip
+                Result = await DoTXRXAsync(new byte[] { 0x05, 0x00, 0x20 }); //GetChip
                 if (Result.Length > 2 && Result[1] == 0x01 ? true : false)
                 {
-                    var cmd = ByteConverter.GetBytesFrom(MIFARELOGIN + key + keyType.ToString("X2") + sectorNumber.ToString("X2"));
-                    Result = DoTXRX(cmd);
+                    var cmd = ByteConverter.GetBytesFrom(MIFARE_CLASSIC_LOGIN + key + keyType.ToString("X2") + sectorNumber.ToString("X2"));
+                    Result = await DoTXRXAsync(cmd);
                 }
                 else
                 {
@@ -855,13 +1225,23 @@ namespace Elatec.NET
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="blockNumber"></param>
+        /// <returns></returns>
+        public byte[] MifareClassicReadBlock(byte blockNumber)
+        {
+            return MifareClassicReadBlockAsync(blockNumber).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
         /// Read Data from Classic Chip
         /// </summary>
         /// <param name="blockNumber">DataBlock Number</param>
         /// <returns>DATA</returns>
-        public byte[] MifareClassicReadBlock(byte blockNumber)
+        public async Task<byte[]> MifareClassicReadBlockAsync(byte blockNumber)
         {
-            Result = DoTXRX(ByteConverter.GetBytesFrom(MIFAREREADBLOCK + blockNumber.ToString("X2")));
+            Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_CLASSIC_READBLOCK + blockNumber.ToString("X2")));
             if(Result.Length > 2)
             {
                 return ByteConverter.Trim(Result, 2, Result.Length - 2);
@@ -880,9 +1260,20 @@ namespace Elatec.NET
         /// <returns></returns>
         public bool MifareClassicWriteBlock(byte[] data, byte blockNumber)
         {
+            return MifareClassicWriteBlockAsync(data, blockNumber).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="blockNumber"></param>
+        /// <returns></returns>
+        public async Task<bool> MifareClassicWriteBlockAsync(byte[] data, byte blockNumber)
+        {
             if(data.Length == 16)
             {
-                Result = DoTXRX(ByteConverter.GetBytesFrom(MIFAREWRITEBLOCK + blockNumber.ToString("X2") + ByteConverter.GetStringFrom(data)));
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_CLASSIC_WRITEBLOCK + blockNumber.ToString("X2") + ByteConverter.GetStringFrom(data)));
 
                 if (Result.Length == 2)
                 {
@@ -904,184 +1295,20 @@ namespace Elatec.NET
 
         #region DesFireCommands
 
-        /// <summary>
-        /// Select a desfire Application
-        /// </summary>
-        /// <param name="appID">The Application ID to select</param>
-        /// <returns>true if Application could be selected, false otherwise</returns>
-        public bool DesfireSelectApplication(uint appID)
+        public UInt32[] GetDesfireAppIDs()
         {
-            try
-            {
-                Result = DoTXRX(new byte[] { 0x05, 0x00, 0x20 }); //GetChip
-                Result = DoTXRX(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_SELECTAPP + "00" + ByteConverter.GetStringFrom(BitConverter.GetBytes(appID))));
-
-                if (Result?.Length == 2)
-                {
-                    return Result[1] == 0x01 ? true : false;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
-                return false;
-            }
-
-        }
-
-        /// <summary>
-        /// Get the free Memory of a desfire. 
-        /// </summary>
-        /// <returns>a uint32 of the available memory if supported, null if freemem could not be read out</returns>
-        public UInt32? GetDesfireFreeMemory()
-        {
-            try
-            {
-                Result = DoTXRX(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETFREEMEMORY + "00"));
-
-                if (Result?.Length > 2)
-                {
-                    UInt32 freemem = 0x00000000;
-
-                    for (uint i = 3; i >= 2; i--)
-                    {
-                        freemem = (freemem << 8);
-                        freemem |= (byte)(Result[i]);
-                    }
-                    return freemem;
-                }
-
-                else
-                {
-                    return null;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Authenticate to a previously selected desfire application
-        /// </summary>
-        /// <param name="key">string: a 16 bytes key e.g. 00000000000000000000000000000000</param>
-        /// <param name="keyNo">byte: the keyNo to use</param>
-        /// <param name="keyType">byte: 0 = 3DES, 1 = 3K3DES, 2 = AES</param>
-        /// <param name="authMode">byte: 1 = EV1 Mode, 0 = EV0 Mode</param>
-        /// <returns>true if Authentication was successful, false otherwise</returns>
-        public bool DesfireAuthenticate(string key, byte keyNo, byte keyType, byte authMode)
-        {
-            try
-            {
-                Result = DoTXRX(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_AUTH + "00" //CryptoEnv
-                                                               + keyNo.ToString("X2")
-                                                               + "10" // keyLength ?
-                                                               + key
-                                                               + keyType.ToString("X2")
-                                                               + authMode.ToString("X2"))); // EV1-ISO Mode = 1, compatible = 0
-
-                if (Result?.Length == 2)
-                {
-                    return Result[1] == 0x01 ? true : false;
-                }
-
-                else
-                {
-                    return false;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
-                return false;
-            }
-
-        }
-
-        /// <summary>
-        /// Creates a new Application
-        /// </summary>
-        /// <param name="_keySettingsTarget">byte: KS_CHANGE_KEY_WITH_MK = 0, KS_ALLOW_CHANGE_MK = 1, KS_FREE_LISTING_WITHOUT_MK = 2, KS_FREE_CREATE_DELETE_WITHOUT_MK = 4, KS_CONFIGURATION_CHANGEABLE = 8, KS_DEFAULT = 11, KS_CHANGE_KEY_WITH_TARGETED_KEYNO = 224, KS_CHANGE_KEY_FROZEN = 240</param>
-        /// <param name="_keyTypeTargetApplication">byte: 0 = 3DES, 1 = 3K3DES, 2 = AES</param>
-        /// <param name="_maxNbKeys">int max. number of keys</param>
-        /// <param name="_appID">int application id</param>
-        /// <returns>true if the Operation was successful, false otherwise</returns>
-        public bool DesfireCreateApplication(DESFireKeySettings _keySettingsTarget, DESFireKeyType _keyTypeTargetApplication, int _maxNbKeys, int _appID)
-        {
-            try
-            {
-                Result = DoTXRX(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_CREATEAPP + "00" //CryptoEnv
-                                                                   + ByteConverter.GetStringFrom(ByteConverter.Reverse(ByteConverter.GetBytesFrom(_appID.ToString("X8"))))
-                                                                   + ((byte)_keySettingsTarget).ToString("X2")
-                                                                   + _maxNbKeys.ToString("D2")
-                                                                   + "000000"
-                                                                   + ((int)_keyTypeTargetApplication).ToString("D2")
-                                                                   + "000000"));
-
-                if (Result?.Length == 2)
-                {
-                    return Result[1] == 0x01 ? true : false;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Retrieve the Available File IDs after selecing App and Authenticating
-        /// </summary>
-        /// <returns>byte[] array of available file ids. null on error</returns>
-        public byte[] GetDesfireFileIDs()
-        {
-            try
-            {
-                Result = DoTXRX(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETFILEIDS + "00" + "FF"));
-
-                var fids = new byte[1];
-
-                if (Result?.Length > 2)
-                {
-                    fids = new byte[Result[2]];
-                    for (var i = 3; i < Result.Length; i++)
-                    {
-                        fids[i - 3] = (byte)Result[i];
-                    }
-                    return fids;
-                }
-                else
-                {
-                    return null;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
-                return null;
-            }
+            return GetDesfireAppIDsAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
         /// Retrieve the Available Application IDs after selecing PICC (App 0), Authentication is needed - depending on the security config
         /// </summary>
         /// <returns>a uint32[] of the available appids with 4bytes each, null if no apps are available or on error</returns>
-        public UInt32[] GetDesfireAppIDs()
+        public async Task<UInt32[]> GetDesfireAppIDsAsync()
         {
             try
             {
-                Result = DoTXRX(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETAPPIDS + "00" + "1C"));
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETAPPIDS + "00" + "1C"));
 
                 UInt32[] appids = new UInt32[1];
 
@@ -1114,14 +1341,282 @@ namespace Elatec.NET
         }
 
         /// <summary>
-        /// Get the KeySettings (Properties: KeySettings, NumberOfKeys, KeyType) of the selected Application. Authentication is needed - depending on the security config
+        /// 
         /// </summary>
-        /// <returns>true if the Operation was successful, false otherwise</returns>
-        public bool GetDesFireKeySettings()
+        /// <param name="appID"></param>
+        /// <returns></returns>
+        public bool DesfireSelectApplication(uint appID)
+        {
+            return DesfireSelectApplicationAsync(appID).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Select a desfire Application
+        /// </summary>
+        /// <param name="appID">The Application ID to select</param>
+        /// <returns>true if Application could be selected, false otherwise</returns>
+        public async Task<bool> DesfireSelectApplicationAsync(uint appID)
         {
             try
             {
-                Result = DoTXRX(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETKEYSETTINGS + "00"));
+                Result = await DoTXRXAsync(new byte[] { 0x05, 0x00, 0x20 }); //GetChip
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_SELECTAPP + "00" + ByteConverter.GetStringFrom(BitConverter.GetBytes(appID))));
+
+                if (Result?.Length == 2)
+                {
+                    return Result[1] == 0x01 ? true : false;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            catch (Exception e)
+            {
+                LogWriter.CreateLogEntry(e, LogFacilityName);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public UInt32? GetDesfireFreeMemory()
+        {
+            return GetDesfireFreeMemoryAsync().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Get the free Memory of a desfire. 
+        /// </summary>
+        /// <returns>a uint32 of the available memory if supported, null if freemem could not be read out</returns>
+        public async Task<UInt32?> GetDesfireFreeMemoryAsync()
+        {
+            try
+            {
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETFREEMEMORY + "00"));
+
+                if (Result?.Length > 2)
+                {
+                    UInt32 freemem = 0x00000000;
+
+                    for (uint i = 3; i >= 2; i--)
+                    {
+                        freemem = (freemem << 8);
+                        freemem |= (byte)(Result[i]);
+                    }
+                    return freemem;
+                }
+
+                else
+                {
+                    return null;
+                }
+            }
+            catch (Exception e)
+            {
+                LogWriter.CreateLogEntry(e, LogFacilityName);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="keyNo"></param>
+        /// <param name="keyType"></param>
+        /// <param name="authMode"></param>
+        /// <returns></returns>
+        public bool DesfireAuthenticate(string key, byte keyNo, byte keyType, byte authMode)
+        {
+            return DesfireAuthenticateAsync(key, keyNo, keyType, authMode).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Authenticate to a previously selected desfire application
+        /// </summary>
+        /// <param name="key">string: a 16 bytes key e.g. 00000000000000000000000000000000</param>
+        /// <param name="keyNo">byte: the keyNo to use</param>
+        /// <param name="keyType">byte: 0 = 3DES, 1 = 3K3DES, 2 = AES</param>
+        /// <param name="authMode">byte: 1 = EV1 Mode, 0 = EV0 Mode</param>
+        /// <returns>true if Authentication was successful, false otherwise</returns>
+        public async Task<bool> DesfireAuthenticateAsync(string key, byte keyNo, byte keyType, byte authMode)
+        {
+            try
+            {
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_AUTH + "00" //CryptoEnv
+                                                               + keyNo.ToString("X2")
+                                                               + "10" // keyLength ?
+                                                               + key
+                                                               + keyType.ToString("X2")
+                                                               + authMode.ToString("X2"))); // EV1-ISO Mode = 1, compatible = 0
+
+                if (Result?.Length == 2)
+                {
+                    return Result[1] == 0x01 ? true : false;
+                }
+
+                else
+                {
+                    return false;
+                }
+            }
+            catch (Exception e)
+            {
+                LogWriter.CreateLogEntry(e, LogFacilityName);
+                return false;
+            }
+
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="_keySettingsTarget"></param>
+        /// <param name="_keyTypeTargetApplication"></param>
+        /// <param name="_maxNbKeys"></param>
+        /// <param name="_appID"></param>
+        /// <returns></returns>
+        public bool DesfireCreateApplication(DESFireKeySettings _keySettingsTarget, DESFireKeyType _keyTypeTargetApplication, int _maxNbKeys, int _appID)
+        {
+            return DesfireCreateApplicationAsync(_keySettingsTarget, _keyTypeTargetApplication, _maxNbKeys, _appID).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Creates a new Application
+        /// </summary>
+        /// <param name="_keySettingsTarget">byte: KS_CHANGE_KEY_WITH_MK = 0, KS_ALLOW_CHANGE_MK = 1, KS_FREE_LISTING_WITHOUT_MK = 2, KS_FREE_CREATE_DELETE_WITHOUT_MK = 4, KS_CONFIGURATION_CHANGEABLE = 8, KS_DEFAULT = 11, KS_CHANGE_KEY_WITH_TARGETED_KEYNO = 224, KS_CHANGE_KEY_FROZEN = 240</param>
+        /// <param name="_keyTypeTargetApplication">byte: 0 = 3DES, 1 = 3K3DES, 2 = AES</param>
+        /// <param name="_maxNbKeys">int max. number of keys</param>
+        /// <param name="_appID">int application id</param>
+        /// <returns>true if the Operation was successful, false otherwise</returns>
+        public async Task<bool> DesfireCreateApplicationAsync(DESFireKeySettings _keySettingsTarget, DESFireKeyType _keyTypeTargetApplication, int _maxNbKeys, int _appID)
+        {
+            try
+            {
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_CREATEAPP + "00" //CryptoEnv
+                                                                   + ByteConverter.GetStringFrom(ByteConverter.Reverse(ByteConverter.GetBytesFrom(_appID.ToString("X8"))))
+                                                                   + ((byte)_keySettingsTarget).ToString("X2")
+                                                                   + _maxNbKeys.ToString("D2")
+                                                                   + "000000"
+                                                                   + ((int)_keyTypeTargetApplication).ToString("D2")
+                                                                   + "000000"));
+
+                if (Result?.Length == 2)
+                {
+                    return Result[1] == 0x01 ? true : false;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            catch (Exception e)
+            {
+                LogWriter.CreateLogEntry(e, LogFacilityName);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="appID"></param>
+        /// <returns></returns>
+        public bool DesfireDeleteApplication(uint appID)
+        {
+            return DesfireDeleteApplicationAsync(appID).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Select a desfire Application
+        /// </summary>
+        /// <param name="appID">The Application ID to delete</param>
+        /// <returns>true if Application could be deleted, false otherwise</returns>
+        public async Task<bool> DesfireDeleteApplicationAsync(uint appID)
+        {
+            try
+            {
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_DELETEAPP + "00" + ByteConverter.GetStringFrom(BitConverter.GetBytes(appID))));
+
+                if (Result?.Length == 2)
+                {
+                    return Result[1] == 0x01 ? true : false;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            catch (Exception e)
+            {
+                LogWriter.CreateLogEntry(e, LogFacilityName);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public byte[] GetDesfireFileIDs()
+        {
+            return GetDesfireFileIDsAsync().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Retrieve the Available File IDs after selecing App and Authenticating
+        /// </summary>
+        /// <returns>byte[] array of available file ids. null on error</returns>
+        public async Task<byte[]> GetDesfireFileIDsAsync()
+        {
+            try
+            {
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETFILEIDS + "00" + "FF"));
+
+                var fids = new byte[1];
+
+                if (Result?.Length > 2)
+                {
+                    fids = new byte[Result[2]];
+                    for (var i = 3; i < Result.Length; i++)
+                    {
+                        fids[i - 3] = (byte)Result[i];
+                    }
+                    return fids;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            catch (Exception e)
+            {
+                LogWriter.CreateLogEntry(e, LogFacilityName);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public bool GetDesFireKeySettings()
+        {
+            return GetDesFireKeySettingsAsync().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Get the KeySettings (Properties: KeySettings, NumberOfKeys, KeyType) of the selected Application. Authentication is needed - depending on the security config
+        /// </summary>
+        /// <returns>true if the Operation was successful, false otherwise</returns>
+        public async Task<bool> GetDesFireKeySettingsAsync()
+        {
+            try
+            {
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETKEYSETTINGS + "00"));
 
                 if (Result?.Length >= 3 && (Result[1] == 0x01 ? true : false))
                 {
@@ -1144,15 +1639,25 @@ namespace Elatec.NET
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="fileNo"></param>
+        /// <returns></returns>
+        public byte[] GetDesFireFileSettings(byte fileNo)
+        {
+            return GetDesFireFileSettingsAsync(fileNo).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
         /// Get the filesettings of a fileid
         /// </summary>
         /// <param name="fileNo">id of the desired file</param>
         /// <returns>byte[] array of the file settings. null on error. content: FileType = fileSettings[2]; comSett = fileSettings[3]; accessRights[0] = fileSettings[4]; accessRights[1] = fileSettings[5];</returns>
-        public byte[] GetDesFireFileSettings(byte fileNo)
+        public async Task<byte[]> GetDesFireFileSettingsAsync(byte fileNo)
         {
             try
             {
-                Result = DoTXRX(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETFILESETTINGS + "00" + ByteConverter.GetStringFrom(fileNo)));
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETFILESETTINGS + "00" + ByteConverter.GetStringFrom(fileNo)));
 
                 if (Result?.Length >= 3 && (Result[1] == 0x01 ? true : false))
                 {
@@ -1171,6 +1676,265 @@ namespace Elatec.NET
 
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="fileNo"></param>
+        /// <param name="fileType"></param>
+        /// <param name="comSet"></param>
+        /// <param name="accessRights"></param>
+        /// <param name="fileSize"></param>
+        /// <returns></returns>
+        public bool DesfireCreateFile(byte fileNo, byte fileType, byte comSet, UInt16 accessRights, UInt32 fileSize)
+        {
+            return DesfireCreateFileAsync(fileNo, fileType, comSet, accessRights, fileSize).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Read out Data on a Desfire
+        /// </summary>
+        /// <param name="fileNo">byte: filenumber: 0x00 - 0x14</param>
+        /// <param name="length">int: filesize to read</param>
+        /// <param name="comSet">byte: 0 = Plain, 1 = CMAC, 2 = Encrypted</param>
+        /// <returns>byte[] of data, null on error</returns>
+        public async Task<bool> DesfireCreateFileAsync(byte fileNo, byte fileType, byte comSet, UInt16 accessRights, UInt32 fileSize)
+        {
+            try
+            {
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_CREATE_STDDATAFILE + "00" //CryptoEnv
+                                                                   + fileNo.ToString("X2")
+                                                                   + fileType.ToString("X2")
+                                                                   + comSet.ToString("X2")
+                                                                   + ByteConverter.GetStringFrom(ByteConverter.GetBytesFrom(accessRights.ToString("X4")))
+                                                                   + ByteConverter.GetStringFrom(ByteConverter.Reverse(ByteConverter.GetBytesFrom(fileSize.ToString("X8"))))
+                                                                   + "000000000000000000000000"));
+
+
+
+                return Result?.Length >= 3 && (Result[1] == 0x01 ? true : false);
+
+            }
+            catch (Exception e)
+            {
+                LogWriter.CreateLogEntry(e, LogFacilityName);
+                return false;
+            }
+
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="fileNo"></param>
+        /// <param name="length"></param>
+        /// <param name="comSet"></param>
+        /// <returns></returns>
+        public byte[] DesfireReadData(byte fileNo, int length, byte comSet)
+        {
+            return DesfireReadDataAsync(fileNo, length, comSet).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Read out Data on a Desfire
+        /// </summary>
+        /// <param name="fileNo">byte: filenumber: 0x00 - 0x14</param>
+        /// <param name="length">int: filesize to read</param>
+        /// <param name="comSet">byte: 0 = Plain, 1 = CMAC, 2 = Encrypted</param>
+        /// <returns>byte[] of data, null on error</returns>
+        public async Task<byte[]> DesfireReadDataAsync(byte fileNo, int length, byte comSet)
+        {
+            try
+            {
+                var data = new byte[length];
+                var iterations = (length / 0xFF) == 0 ? 1 : (length / 0xFF);
+                var dataLengthToRead = length;
+
+                for (var i = 0; i < iterations; i++)
+                {
+                    Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_READDATA + "00" //CryptoEnv
+                                                                   + fileNo.ToString("X2")
+                                                                   + ByteConverter.GetStringFrom(ByteConverter.Reverse(ByteConverter.GetBytesFrom((i*0xFF).ToString("X4"))))
+                                                                   + (dataLengthToRead >= 0xFF ? 0xFF : length).ToString("X2")
+                                                                   + (comSet).ToString("X2")));
+                    
+                    Array.Copy(ByteConverter.Trim(Result, 3, Result[2]),0, data,(i*0xFF), (dataLengthToRead >= 0xFF ? 0xFF : length));
+                }
+                
+
+                if (Result?.Length >= 3 && (Result[1] == 0x01 ? true : false))
+                {
+                    return data;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            catch (Exception e)
+            {
+                LogWriter.CreateLogEntry(e, LogFacilityName);
+                return null;
+            }
+
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="keySettings"></param>
+        /// <param name="numberOfKeys"></param>
+        /// <param name="keyType"></param>
+        /// <returns></returns>
+        public bool DesfireChangeKeySettings(byte keySettings, UInt32 numberOfKeys, UInt32 keyType)
+        {
+            return DesfireChangeKeySettingsAsync(keySettings, numberOfKeys, keyType).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="keySettings"></param>
+        /// <param name="numberOfKeys"></param>
+        /// <param name="keyType"></param>
+        /// <returns></returns>
+        public async Task<bool> DesfireChangeKeySettingsAsync(byte keySettings, UInt32 numberOfKeys, UInt32 keyType)
+        {
+            try
+            {
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_CHANGEKEYSETTINGS + "00" 
+                    + keySettings.ToString("X2") 
+                    + numberOfKeys.ToString("X8") 
+                    + keyType.ToString("X8") ));
+
+                return Result?.Length == 2 && (Result[1] == 0x01 ? true : false);
+            }
+            catch (Exception e)
+            {
+                LogWriter.CreateLogEntry(e, LogFacilityName);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="oldKey"></param>
+        /// <param name="newKey"></param>
+        /// <param name="keyVersion"></param>
+        /// <param name="accessRights"></param>
+        /// <param name="keyNo"></param>
+        /// <param name="numberOfKeys"></param>
+        /// <param name="keyType"></param>
+        /// <returns></returns>
+        public bool DesfireChangeKey(string oldKey, string newKey, byte keyVersion, byte accessRights, byte keyNo, UInt32 numberOfKeys, UInt32 keyType)
+        {
+            return DesfireChangeKeyAsync(oldKey, newKey, keyVersion, accessRights, keyNo, numberOfKeys, keyType).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Changes a Key
+        /// </summary>
+        /// <param name="oldKey"></param>
+        /// <param name="newKey"></param>
+        /// <param name="keyVersion"></param>
+        /// <param name="accessRights"></param>
+        /// <param name="keyNo"></param>
+        /// <param name="numberOfKeys"></param>
+        /// <param name="keyType">The Type of the new Key</param>
+        /// <returns></returns>
+        public async Task<bool> DesfireChangeKeyAsync(string oldKey, string newKey, byte keyVersion, byte accessRights, byte keyNo, UInt32 numberOfKeys, UInt32 keyType)
+        {
+            try
+            {
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_CHANGEKEY + "00" 
+                    + keyNo.ToString("X2") 
+                    + "10" + oldKey 
+                    + "10" + newKey 
+                    + keyVersion.ToString("X2") 
+                    + accessRights.ToString("X2")
+                    + ByteConverter.GetStringFrom(ByteConverter.Reverse(ByteConverter.GetBytesFrom(numberOfKeys.ToString("X8"))))
+                    + ByteConverter.GetStringFrom(ByteConverter.Reverse(ByteConverter.GetBytesFrom(keyType.ToString("X8"))))));
+
+                return Result?.Length == 2 && (Result[1] == 0x01 ? true : false);
+            }
+            catch (Exception e)
+            {
+                LogWriter.CreateLogEntry(e, LogFacilityName);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="fileNo"></param>
+        /// <returns></returns>
+        public bool DesfireDeleteFile(byte fileNo)
+        {
+            return DesfireDeleteFileAsync(fileNo).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Delete a File
+        /// </summary>
+        /// <param name="fileNo">byte: Filenumber to delete</param>
+        /// <returns>true if the Operation was successful, false otherwise</returns>
+        public async Task<bool> DesfireDeleteFileAsync(byte fileNo)
+        {
+            try
+            {
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_DELETEFILE + "00" + fileNo.ToString("X2")));
+
+                if (Result?.Length == 2)
+                {
+                    return Result[1] == 0x01 ? true : false;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            catch (Exception e)
+            {
+                LogWriter.CreateLogEntry(e, LogFacilityName);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public bool DesfireFormatTag()
+        {
+            return DesfireFormatTagAsync().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Format a Chip
+        /// </summary>
+        /// <returns>true if the Operation was successful, false otherwise</returns>
+        public async Task<bool> DesfireFormatTagAsync()
+        {
+            try
+            {
+                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_FORMATTAG + "00" ));
+
+                if (Result?.Length == 2)
+                {
+                    return Result[1] == 0x01 ? true : false;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            catch (Exception e)
+            {
+                LogWriter.CreateLogEntry(e, LogFacilityName);
+                return false;
+            }
+        }
         #endregion
 
         protected virtual void Dispose(bool disposing)
@@ -1180,7 +1944,7 @@ namespace Elatec.NET
                 if (disposing)
                 {
                     IsConnected = false;
-
+                    
                     // Dispose any managed objects
                     // ...
                 }
@@ -1193,7 +1957,7 @@ namespace Elatec.NET
         public void Dispose()
         {
             GC.SuppressFinalize(this);
-            GreenLED(false);
+            //GreenLED(false);
             Dispose(true);
         }
 

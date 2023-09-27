@@ -128,7 +128,7 @@ namespace Elatec.NET
     /// <summary>
     /// Currently Available Error Conditions
     /// </summary>
-    public enum ERROR
+    public enum ElatecError
     {
         Empty,
         NoError,

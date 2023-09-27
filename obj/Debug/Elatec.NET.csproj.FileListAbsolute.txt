@@ -3,9 +3,22 @@ D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Debu
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Debug\ByteArray.dll
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Debug\Log4CSharp.dll
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Debug\ByteArray.pdb
-D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Debug\Log4CSharp.pdb
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Debug\Elatec.NET.csproj.AssemblyReference.cache
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Debug\Elatec.NET.csproj.CoreCompileInputs.cache
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Debug\Elatec.NET.csproj.CopyComplete
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Debug\Elatec.NET.dll
 D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\obj\Debug\Elatec.NET.pdb
+D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Debug\System.IO.Ports.dll
+D:\Seafile\Dokumente Privat\Steven\Projekte\Software\Windows\Elatec.NET\bin\Debug\System.IO.Ports.xml
+C:\Temp\Seafile\Elatec.NET\bin\Debug\Elatec.NET.dll
+C:\Temp\Seafile\Elatec.NET\bin\Debug\Elatec.NET.pdb
+C:\Temp\Seafile\Elatec.NET\bin\Debug\ByteArray.dll
+C:\Temp\Seafile\Elatec.NET\bin\Debug\Log4CSharp.dll
+C:\Temp\Seafile\Elatec.NET\bin\Debug\System.IO.Ports.dll
+C:\Temp\Seafile\Elatec.NET\bin\Debug\ByteArray.pdb
+C:\Temp\Seafile\Elatec.NET\bin\Debug\System.IO.Ports.xml
+C:\Temp\Seafile\Elatec.NET\obj\Debug\Elatec.NET.csproj.AssemblyReference.cache
+C:\Temp\Seafile\Elatec.NET\obj\Debug\Elatec.NET.csproj.CoreCompileInputs.cache
+C:\Temp\Seafile\Elatec.NET\obj\Debug\Elatec.NET.csproj.CopyComplete
+C:\Temp\Seafile\Elatec.NET\obj\Debug\Elatec.NET.dll
+C:\Temp\Seafile\Elatec.NET\obj\Debug\Elatec.NET.pdb
