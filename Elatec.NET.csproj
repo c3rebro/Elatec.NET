@@ -9,9 +9,10 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Elatec.NET</RootNamespace>
     <AssemblyName>Elatec.NET</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -73,10 +74,6 @@
     <AssemblyOriginatorKeyFile>Elatec.NET.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Log4CSharp, Version=1.0.8606.39326, Culture=neutral, processorArchitecture=x86">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Log4CSharp\bin\Release\Log4CSharp.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.IO.Ports, Version=7.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
@@ -92,18 +89,14 @@
   <ItemGroup>
     <Compile Include="DataAccessLayer\Constants.cs" />
     <Compile Include="Elatec.NET.cs" />
+    <Compile Include="Helpers\ByteArray.cs" />
+    <Compile Include="Helpers\LogWriter.cs" />
     <Compile Include="Model\ChipModel.cs" />
     <Compile Include="Model\MifareKey.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Model\Commands\" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\ByteArray\ByteArray.csproj">
-      <Project>{bdd5df8c-6fc1-4882-8151-924820fdbc05}</Project>
-      <Name>ByteArray</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="Elatec.NET.snk" />

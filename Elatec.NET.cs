@@ -1,5 +1,7 @@
 ﻿using Microsoft.Win32;
 
+using ByteArrayHelper.Extensions;
+
 using Log4CSharp;
 
 using System;
@@ -10,13 +12,8 @@ using System.Threading.Tasks;
 
 using Elatec.NET.Model;
 
-using ByteArrayHelper.Extensions;
-
 using System.Diagnostics;
-using System.Net;
-using System.Runtime.InteropServices.WindowsRuntime;
-using System.Linq.Expressions;
-//using System.ComponentModel;
+
 /*
 * Elatec.NET is a C# library to easily Talk to Elatec's TWN4 Devices
 * 
@@ -24,7 +21,7 @@ using System.Linq.Expressions;
 * 
 * Some TWN4 Specific "Special" information:
 * 
-* Getting the ATS on different Readers works different.
+* Getting the ATS on different Readers works differently.
 * 
 */
 
@@ -34,7 +31,6 @@ namespace Elatec.NET
     {
         private const bool RESULT_SUCCESS = true;
         private const bool RESULT_FAILED = false;
-        private const string LogFacilityName = "Elatec.NET";
 
         private protected int portNumber;
 
@@ -783,7 +779,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
             }
 
             if (genericChipModel?.CardType != ChipType.NOTAG)
@@ -924,7 +920,7 @@ namespace Elatec.NET
                                     catch (Exception e2)
                                     {
                                         PortAccessDenied = true;
-                                        LogWriter.CreateLogEntry(e2, LogFacilityName);
+                                        LogWriter.CreateLogEntry(e2);
                                     };
                                 }  
                             }
@@ -1001,9 +997,9 @@ namespace Elatec.NET
                     Data = "";
                 Key.Close();
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                LogWriter.CreateLogEntry(ex, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
             }
 
             return Data;
@@ -1047,9 +1043,9 @@ namespace Elatec.NET
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                LogWriter.CreateLogEntry(ex, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
             }
             return "";
         }// End of FindUSBDevice
@@ -1082,9 +1078,9 @@ namespace Elatec.NET
 
                 return PortNr;
             }
-            catch(Exception ex)
+            catch(Exception e)
             {
-                LogWriter.CreateLogEntry(ex, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
             }
 
             return 0;
@@ -1119,7 +1115,7 @@ namespace Elatec.NET
             }
             catch(Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
             }
 
             return PortName;
@@ -1335,7 +1331,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return null;
             }
         }
@@ -1373,7 +1369,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return false;
             }
         }
@@ -1416,7 +1412,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return null;
             }
         }
@@ -1465,7 +1461,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return false;
             }
 
@@ -1515,7 +1511,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return false;
             }
         }
@@ -1552,7 +1548,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return false;
             }
         }
@@ -1594,7 +1590,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return null;
             }
         }
@@ -1633,7 +1629,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return false;
             }
         }
@@ -1670,7 +1666,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return null;
             }
 
@@ -1716,7 +1712,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return false;
             }
 
@@ -1772,7 +1768,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return null;
             }
 
@@ -1810,7 +1806,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return false;
             }
         }
@@ -1859,7 +1855,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return false;
             }
         }
@@ -1896,7 +1892,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return false;
             }
         }
@@ -1931,7 +1927,7 @@ namespace Elatec.NET
             }
             catch (Exception e)
             {
-                LogWriter.CreateLogEntry(e, LogFacilityName);
+                LogWriter.CreateLogEntry(e);
                 return false;
             }
         }
