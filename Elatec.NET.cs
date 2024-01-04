@@ -19,10 +19,6 @@ using System.Diagnostics;
 * 
 * Boolean "Results": Success = true, Failed = false
 * 
-* Some TWN4 Specific "Special" information:
-* 
-* Getting the ATS on different Readers works differently.
-* 
 */
 
 namespace Elatec.NET
@@ -1953,10 +1949,8 @@ namespace Elatec.NET
         public void Dispose()
         {
             GC.SuppressFinalize(this);
-            //GreenLED(false);
             Dispose(true);
         }
-
     }
 
 
