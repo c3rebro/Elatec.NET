@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Elatec.NET</RootNamespace>
     <AssemblyName>Elatec.NET</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
     <TargetFrameworkProfile />
@@ -90,7 +90,9 @@
     <Compile Include="DataAccessLayer\Constants.cs" />
     <Compile Include="Elatec.NET.cs" />
     <Compile Include="Helpers\ByteArray.cs" />
-    <Compile Include="Helpers\LogWriter.cs" />
+    <Compile Include="Helpers\DeviceManager.cs" />
+    <Compile Include="Helpers\ListExtensions.cs" />
+    <Compile Include="Helpers\ResponseParser.cs" />
     <Compile Include="Model\ChipModel.cs" />
     <Compile Include="Model\MifareKey.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -101,6 +103,12 @@
   <ItemGroup>
     <None Include="Elatec.NET.snk" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Log4CSharp\Log4CSharp.csproj">
+      <Project>{786d71e7-4d92-43e4-a9eb-4e07ffe36f70}</Project>
+      <Name>Log4CSharp</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
