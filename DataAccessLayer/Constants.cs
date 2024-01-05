@@ -201,6 +201,19 @@ namespace Elatec.NET
         NotAllowed
     }
 
+    /// <summary>
+    /// A response to a TWN Simple Protocol command always starts with a byte, which reflects execution of the command on protocol level.
+    /// </summary>
+    public enum ResponseError : byte
+    {
+        None = 0,
+        UnknownFunction = 1,
+        MissingParameter = 2,
+        UnusedParameters = 3,
+        InvalidFunction = 4,
+        ParserError = 5,
+    }
+
     #region GPIOs
 
     /// <summary>
@@ -466,5 +479,27 @@ namespace Elatec.NET
         public const int High = 2400;
     }
 
+    /// <summary>
+    ///     TODO: Elatec references some constants in TWN4 API reference, but without their values:
+    ///     USBTYPE_CCID_HID: CCID + HID (compound device),
+    ///     USBTYPE_REPORTS: CCID + HID reports,
+    ///     USBTYPE_CCID_CDC: CCID + CDC (compound device),
+    ///     USBTYPE_CCID: CCID
+    /// </summary>
+    public enum UsbType : byte
+    {
+        None = 0,
+        /// <summary>
+        /// CDC device (virtual COM port)
+        /// </summary>
+        CDC = 1,
+        Keyboard = 4,
+    }
 
+    public enum DeviceType : byte
+    {
+        LegicNfc = 10,
+        MifareNfc = 11,
+        Legic63 = 12,
+    }
 }

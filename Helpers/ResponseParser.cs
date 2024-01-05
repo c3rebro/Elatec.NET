@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace Elatec.NET
 {
@@ -58,6 +59,11 @@ namespace Elatec.NET
             return ParseByte() != 0;
         }
 
+        public ResponseError ParseResponseError()
+        {
+            return (ResponseError)ParseByte();
+        }
+
         public byte[] ParseVarByteArray()
         {
             int num = ParseByte();
@@ -65,6 +71,24 @@ namespace Elatec.NET
             Bytes.CopyTo(ParseIdx, result, 0, num);
             ParseIdx += num;
             return result;
+        }
+
+        public byte[] ParseFixByteArray(int num)
+        {
+            if (ParseIdx >= Bytes.Count - num + 1)
+            {
+                throw new ApplicationException("Response too short");
+            }
+            var result = new byte[num];
+            Bytes.CopyTo(ParseIdx, result, 0, num);
+            ParseIdx += num;
+            return result;
+        }
+
+        public string ParseAsciiString()
+        {
+            byte[] stringBytes = ParseVarByteArray();
+            return Encoding.ASCII.GetString(stringBytes);
         }
     }
 }
