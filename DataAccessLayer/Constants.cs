@@ -24,7 +24,7 @@ namespace Elatec.NET
         public const string TITLE_SUFFIX = "DEVELOPER PREVIEW"; //turns out special app versions
     }
 
-    [Flags]
+    
     public enum ChipType
     {
         NOTAG = 0,
@@ -125,6 +125,65 @@ namespace Elatec.NET
         GENERIC_T_CL_A = 0xFF
     }
 
+
+
+    [Flags]
+    public enum LFTagTypes : uint
+    {
+        NOTAG = 0,
+        // LF Tags
+        EM4102 = 1 << 0,    // "EM4x02/CASI-RUSCO" (aka IDRO_A)
+        HITAG1S = 1 << 1,   // "HITAG 1/HITAG S"   (aka IDRW_B)
+        HITAG2 = 1 << 2,    // "HITAG 2"           (aka IDRW_C)
+        EM4150 = 1 << 3,    // "EM4x50"            (aka IDRW_D)
+        AT5555 = 1 << 4,    // "T55x7"             (aka IDRW_E)
+        ISOFDX = 1 << 5,    // "ISO FDX-B"         (aka IDRO_G)
+        EM4026 = 1 << 6,    // N/A                 (aka IDRO_H)
+        HITAGU = 1 << 7,    // N/A                 (aka IDRW_I)
+        EM4305 = 1 << 8,    // "EM4305"            (aka IDRW_K)
+        HIDPROX = 1 << 9,	// "HID Prox"
+        TIRIS = 1 << 0xA,	    // "ISO HDX/TIRIS"
+        COTAG = 1 << 0xB,	    // "Cotag"
+        IOPROX = 1 << 0xC,	// "ioProx"
+        INDITAG = 1 << 0xD,	// "Indala"
+        HONEYTAG = 1 << 0xE,	// "NexWatch"
+        AWID = 1 << 0xF,	    // "AWID"
+        GPROX = 1 << 0x10,	    // "G-Prox"
+        PYRAMID = 1 << 0x11,	// "Pyramid"
+        KERI = 1 << 0x12,	    // "Keri"
+        DEISTER = 1 << 0x13,	// "Deister"
+        CARDAX = 1 << 0x14,	// "Cardax"
+        NEDAP = 1 << 0x15,	    // "Nedap"
+        PAC = 1 << 0x16,	    // "PAC"
+        IDTECK = 1 << 0x17,	// "IDTECK"
+        ULTRAPROX = 1 << 0x18,	// "UltraProx"
+        ICT = 1 << 0x19,	    // "ICT"
+        ISONAS = 1 << 0x1A,	// "Isonas"
+
+        AllLFTags = 0xFFFFFFFF,
+    }
+
+    [Flags]
+    public enum HFTagTypes : uint
+    {
+        NOTAG = 0,
+        // HF Tags
+        MIFARE = 1 << 0,	// "ISO14443A/MIFARE"
+        ISO14443B = 1 << 1,	// "ISO14443B"
+        ISO15693 = 1 << 2,	// "ISO15693"
+        LEGIC = 1 << 3,	    // "LEGIC"
+        HIDICLASS = 1 << 4,	// "HID iCLASS"
+        FELICA = 1 << 5,	// "FeliCa"
+        SRX = 1 << 6,	    // "SRX"
+        NFCP2P = 1 << 7,	// "NFC Peer-to-Peer"
+        BLE = 1 << 8,	    // "Bluetooth Low Energy"
+        TOPAZ = 1 << 9,     // "Topaz"
+        CTS = 1 << 0xA,       // "CTS256 / CTS512"
+        BLELC = 1 << 0xB,     // "Bluetooth Low Energy LEGIC Connect"
+
+        AllHFTags = 0xFFFFFFFF,
+    }
+
     /// <summary>
     /// Currently Available Error Conditions
     /// </summary>
@@ -140,6 +199,79 @@ namespace Elatec.NET
         IsNotFalse,
         OutOfMemory,
         NotAllowed
+    }
+
+    /// <summary>
+    /// A response to a TWN Simple Protocol command always starts with a byte, which reflects execution of the command on protocol level.
+    /// </summary>
+    public enum ResponseError : byte
+    {
+        None = 0,
+        UnknownFunction = 1,
+        MissingParameter = 2,
+        UnusedParameters = 3,
+        InvalidFunction = 4,
+        ParserError = 5,
+    }
+
+    #region GPIOs
+
+    /// <summary>
+    /// Bitmasks of GPIOs
+    /// </summary>
+    [Flags]
+    public enum Gpios : byte
+    {
+        GPIO0 = 0x0001,
+        GPIO1 = 0x0002,
+        GPIO2 = 0x0004,
+        GPIO3 = 0x0008,
+        GPIO4 = 0x0010,
+        GPIO5 = 0x0020,
+        GPIO6 = 0x0040,
+        GPIO7 = 0x0080,
+    }
+
+    /// <summary>
+    /// GPIO Pullup/Pulldown
+    /// </summary>
+    public enum GpioPullType : byte
+    {
+        NoPull = 0,
+        PullUp = 1,
+        PullDown = 2
+    }
+
+    /// <summary>
+    /// GPIO Output Type
+    /// </summary>
+    public enum GpioOutputType : byte
+    {
+        PushPull = 0,
+        OpenDrain = 1
+    }
+
+    #endregion
+
+
+    /// <summary>
+    ///     Colored LEDs
+    /// </summary>
+    /// <remarks>
+    ///     REDLED = GPIO0,
+    ///     GREENLED = GPIO1,
+    ///     YELLOWLED = GPIO2,
+    ///     BLUELED = GPIO2.
+    ///     Attention: Yellow and Blue have the same id!
+    /// </remarks>
+    [Flags]
+    public enum Leds : byte
+    {
+        Red = Gpios.GPIO0,
+        Green = Gpios.GPIO1,
+        Yellow = Gpios.GPIO2,
+        Blue = Gpios.GPIO2,
+        All = Red | Green | Yellow | Blue
     }
 
     /// <summary>
@@ -294,5 +426,80 @@ namespace Elatec.NET
 
         public int KeyNumber;
         public string AccessBits { get => accessBits; set => accessBits = value; }
+    }
+
+    /// <summary>
+    /// Music notes to be used with Beep() or PlayMusic().
+    /// </summary>
+    public static class Notes
+    {
+        public const int C3 = 1047;
+        public const int CIS3 = 1109;
+        public const int DES3 = 1109;
+        public const int D3 = 1175;
+        public const int DIS3 = 1245;
+        public const int ES3 = 1245;
+        public const int E3 = 1319;
+        public const int F3 = 1397;
+        public const int FIS3 = 1480;
+        public const int GES3 = 1480;
+        public const int G3 = 1568;
+        public const int GIS3 = 1661;
+        public const int AES3 = 1661;
+        public const int A3 = 1760;
+        public const int B3 = 1865;
+        public const int H3 = 1976;
+        public const int C4 = 2093;
+        public const int CIS4 = 2217;
+        public const int DES4 = 2217;
+        public const int D4 = 2349;
+        public const int DIS4 = 2489;
+        public const int ES4 = 2489;
+        public const int E4 = 2637;
+        public const int F4 = 2794;
+        public const int FIS4 = 2960;
+        public const int GES4 = 2960;
+        public const int G4 = 3136;
+        public const int GIS4 = 3322;
+        public const int AES4 = 3322;
+        public const int A4 = 3520;
+        public const int AIS4 = 3729;
+        public const int B4 = 3729;
+        public const int H4 = 3951;
+        public const int C5 = 4186;
+        public const int CIS5 = 4435;
+        public const int DES5 = 4435;
+        public const int D5 = 4699;
+        public const int DIS5 = 4978;
+        public const int ES5 = 4978;
+        public const int E5 = 5274;
+        public const int F5 = 5588;
+
+        public const int Low = 2057;
+        public const int High = 2400;
+    }
+
+    /// <summary>
+    ///     TODO: Elatec references some constants in TWN4 API reference, but without their values:
+    ///     USBTYPE_CCID_HID: CCID + HID (compound device),
+    ///     USBTYPE_REPORTS: CCID + HID reports,
+    ///     USBTYPE_CCID_CDC: CCID + CDC (compound device),
+    ///     USBTYPE_CCID: CCID
+    /// </summary>
+    public enum UsbType : byte
+    {
+        None = 0,
+        /// <summary>
+        /// CDC device (virtual COM port)
+        /// </summary>
+        CDC = 1,
+        Keyboard = 4,
+    }
+
+    public enum DeviceType : byte
+    {
+        LegicNfc = 10,
+        MifareNfc = 11,
+        Legic63 = 12,
     }
 }

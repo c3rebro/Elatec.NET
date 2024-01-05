@@ -1,6 +1,4 @@
-﻿using Microsoft.Win32;
-
-using ByteArrayHelper.Extensions;
+﻿using ByteArrayHelper.Extensions;
 
 using Log4CSharp;
 
@@ -13,22 +11,39 @@ using System.Threading.Tasks;
 using Elatec.NET.Model;
 
 using System.Diagnostics;
+using System.Collections.Generic;
+using System.Linq;
 
 /*
 * Elatec.NET is a C# library to easily Talk to Elatec's TWN4 Devices
 * 
-* Boolean "Results": Success = true, Failed = false
+* Some TWN4 Specific "Special" information:
+* 
+* Getting the ATS on different Readers works differently.
 * 
 */
 
 namespace Elatec.NET
 {
+    /// <summary>
+    ///     This class offers communications methods with a TWN4 Reader device, e.g. TWN4 MultiTech 2.
+    ///     The methods are on different abstraction levels:<br/>
+    ///     <list type="number">
+    ///     <item>High level<br/>
+    ///     - e.g. <see cref="GetSingleChipAsync(bool)"/> providing detailed information</item>
+    ///     <item>TWN4 Simple Protocol APIs<br/>
+    ///     - e.g. <see cref="GpioSetBitsAsync(Gpios)"/></item>
+    ///     <item>Low level TWN4 Simple Protocol APIs<br/>
+    ///     - <see cref="CallFunctionAsync(byte[])"/> which takes a raw byte[] as input and returns a parser. Errors are thrown as TwnException.<br />
+    ///     - See <see cref="CallFunctionParserAsync(byte[])"/> and <see cref="CallFunctionRawAsync(byte[])"/> for variants without error handling and parser.</item>
+    ///     </list>
+    /// </summary>
     public class TWN4ReaderDevice : IDisposable
     {
         private const bool RESULT_SUCCESS = true;
         private const bool RESULT_FAILED = false;
 
-        private protected int portNumber;
+        //private protected int portNumber;        
 
         private bool _disposed;
         private static readonly object syncRoot = new object();
@@ -62,7 +77,7 @@ namespace Elatec.NET
 
         private const string MIFARE_DESFIRE_CHANGEKEYSETTINGS = "0F18";
         private const string MIFARE_DESFIRE_CHANGEKEY = "0F19";
-   
+
         private const string ISO14443_GET_ATS = "1200";
         private const string ISO14443_4_TXD = "1203";
         private const string ISO14443_3_TXD = "1207";
@@ -79,7 +94,8 @@ namespace Elatec.NET
                 {
                     if (instance == null)
                     {
-                        instance = new TWN4ReaderDevice();
+                        instance = DeviceManager.GetAvailableReaders().FirstOrDefault();
+                        //instance = new TWN4ReaderDevice();
                         return instance;
 
                     }
@@ -101,16 +117,567 @@ namespace Elatec.NET
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="port"></param>
-        public TWN4ReaderDevice(int port)
+        /// <param name="portName"></param>
+        public TWN4ReaderDevice(string portName)
         {
-            portNumber = port;
+            PortName = portName;
         }
 
         /// <summary>
         /// 
         /// </summary>
         public bool PortAccessDenied { get; private set; }
+
+        #region Low level APIs
+
+        #region API_SYS / System Functions
+
+        public const int API_SYS = 0;
+
+        // Not supported: SYSFUNC(API_SYS, 0, bool SysCall(TEnvSysCall* Env))
+
+        /// <summary>
+        /// This function is performing a reset of the firmware, which also includes a restart of the currently running App.
+        /// </summary>
+        /// <returns></returns>
+        public async Task ResetAsync()
+        {
+            await CallFunctionAsync(new byte[] { API_SYS, 1 });
+        }
+
+        /// <summary>
+        /// This function is performing a manual call of the boot loader. As a consequence the execution of the App is stopped.
+        /// </summary>
+        /// <returns></returns>
+        public async Task StartBootloaderAsync()
+        {
+            await CallFunctionAsync(new byte[] { API_SYS, 2 });
+        }
+
+        /// <summary>
+        /// Retrieve number of system ticks, specified in multiple of 1 milliseconds, since startup of the firmware.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<uint> GetSysTicksAsync()
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_SYS, 3 });
+            uint ticks = parser.ParseLong();
+            return ticks;
+        }
+
+        /// <summary>
+        /// Retrieve version information.
+        /// </summary>
+        /// <param name="maxLen"></param>
+        /// <returns></returns>
+        public async Task<string> GetVersionStringAsync(byte maxLen = byte.MaxValue)
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_SYS, 4, maxLen });
+            string version = parser.ParseAsciiString();
+            return version;
+        }
+
+        /// <summary>
+        ///     Retrieve type of USB communication. This could by keyboard emulation or CDC emulation or some other
+        ///     value for future or custom implementations.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<UsbType> GetUsbTypeAsync()
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_SYS, 5 });
+            var type = (UsbType)parser.ParseByte();
+            return type;
+        }
+
+        /// <summary>
+        /// Retrieve type of underlying TWN4 hardware.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<DeviceType> GetDeviceTypeAsync()
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_SYS, 6 });
+            var type = (DeviceType)parser.ParseByte();
+            return type;
+        }
+
+        /// <summary>
+        ///     The device enters the sleep state for a specified time. During sleep state, the device reduces the current
+        ///     consumption to a value, which depends on the mode of sleep.
+        /// </summary>
+        /// <param name="ticks">Time, specified in milliseconds, the device should enter the sleep state.</param>
+        /// <param name="flags">See TWN4 API Reference.</param>
+        /// <returns>See TWN4 API Reference.</returns>
+        public async Task<byte> SleepAsync(uint ticks, uint flags)
+        {
+            List<byte> bytes = new List<byte>() { API_RF, 7 };
+            bytes.AddLong(ticks);
+            bytes.AddLong(flags);
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var result = parser.ParseByte();
+            return result;
+        }
+
+        /// <summary>
+        /// This function returns a UID, which is unique to the specific TWN4 device.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<byte[]> GetDeviceUidAsync()
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_SYS, 8 });
+            byte[] result = parser.ParseFixByteArray(12);
+            return result;
+        }
+
+        // TODO: SYSFUNC(API_SYS, 9, bool SetParameters(const byte* TLV,int ByteCount))
+        // TODO: SYSFUNC(API_SYS,10, unsigned int GetLastError(void))
+
+        // Not supported: SYSFUNC(API_SYS,11, int Diagnostic(int Mode,const void* In,int InLen,void* Out,int* OutLen,int MaxOutLen))
+        // TODO: SYSFUNC(API_SYS,13, int GetProdSerNo(byte* SerNo, int MaxLen))
+        // Not supported: SYSFUNC(API_SYS,14, bool SetInterruptHandler(TInterruptHandler InterruptHandler, int IntNo))
+
+        /// <summary>
+        /// Retrieve version information.
+        /// </summary>
+        /// <returns></returns>
+        /// <remarks>SYSFUNC(API_SYS,15, void GetVersionInfo(TVersionInfo* VersionInfo)).
+        ///     The internal method is not documented in TWN4 API reference.
+        /// </remarks>
+        public async Task<VersionInfo> GetVersionInfoAsync()
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_SYS, 15 });
+            var info = new VersionInfo();
+            info.Compatibility = parser.ParseWord();
+            info.BootBranch = parser.ParseWord();
+            var minor = parser.ParseByte();
+            var major = parser.ParseByte();
+            info.BootVersion = new Version(major, minor);
+            info.FirmwareKeyType = parser.ParseWord();
+            info.BranchNum = parser.ParseByte();
+            info.BranchChar = (char)parser.ParseByte();
+            minor = parser.ParseByte();
+            major = parser.ParseByte();
+            info.FirmwareVersion = new Version(major, minor);
+            info.AppChars = parser.ParseFixByteArray(4);
+            minor = parser.ParseByte();
+            major = parser.ParseByte();
+            info.AppVersion = new Version(major, minor);
+
+            return info;
+        }
+
+        public class VersionInfo
+        {
+            public int Compatibility { get; set; }
+            public int BootBranch { get; set; }
+            public Version BootVersion { get; set; }
+            public int FirmwareKeyType { get; set; }
+            public byte BranchNum { get; set; }
+            /// <summary>
+            /// 'K' = Keyboard, 'C' = CDC
+            /// </summary>
+            public char BranchChar { get; set; }
+            public Version FirmwareVersion { get; set; }
+            /// <summary>
+            /// e.g. "STD", "STDC", "PRS" = Simple Protocol
+            /// </summary>
+            public byte[] AppChars { get; set; }
+            public Version AppVersion { get; set; }
+        }
+
+        // Not supported: SYSFUNC(API_SYS,16, bool ReadInfoValue(int Index, int FilterType, int* Type, int* Length, byte* Value, int MaxLength))
+        // Not supported: SYSFUNC(API_SYS,17, bool WriteInfoValue(int Type, int Length,const byte* Value))
+        // Not supported: SYSFUNC(API_SYS,18, bool GetCustomKeyID(byte* CustomKeyID, int* Length, int MaxLength))
+        // Not supported: SYSFUNC(API_SYS,19, bool GetParameters(const byte* Types,int TypeCount,byte* TLVBytes,int* TLVByteCount,int TLVMaxByteCount))
+
+        #endregion
+
+        #region API_PERIPH / Periphery Functions
+
+        public const int API_PERIPH = 4;
+
+        /// <summary>
+        ///     Use this function to configure one or several GPIOs as output. Each output can be configured to have an
+        ///     integrated pull-up or pull-down resistor.The output driver characteristic is either Push-Pull or Open Drain.
+        /// </summary>
+        /// <param name="bits">Specify the GPIOs that shall be configured for output. Several GPIOs can
+        ///     be configured simultaneously by using the bitwise or-operator (|).</param>
+        /// <param name="pullUpDown">Specify the behaviour of the internal weak pull-up/down resistor.</param>
+        /// <param name="outputType">Specify the output driver characteristic.</param>
+        /// <returns></returns>
+        public async Task GpioConfigureOutputsAsync(Gpios bits, GpioPullType pullUpDown, GpioOutputType outputType)
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0, (byte)bits, (byte)pullUpDown, (byte)outputType });
+        }
+
+        /// <summary>
+        ///     Use this function to configure one or several GPIOs as input. Each output can be configured to have an
+        ///     integrated pull-up or pull-down resistor, alternatively it can be left floating.
+        /// </summary>
+        /// <param name="bits">Specify the GPIOs that shall be configured for input. Several GPIOs can
+        ///     be configured simultaneously by using the bitwise or-operator (|).</param>
+        /// <param name="pullUpDown">Specify the behaviour of the internal weak pull-up/down resistor.</param>
+        /// <returns></returns>
+        public async Task GpioConfigureInputsAsync(Gpios bits, GpioPullType pullUpDown)
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 1, (byte)bits, (byte)pullUpDown });
+        }
+
+        /// <summary>
+        ///     Use this function to set one or several GPIOs to logical high level.
+        ///     The respective ports must have been configured to output in advance.
+        /// </summary>
+        /// <param name="bits">Specify the GPIOs that shall be set to a logical level. Several GPIOs can
+        ///     be handled simultaneously by using the bitwise or-operator (|).</param>
+        /// <returns></returns>
+        public async Task GpioSetBitsAsync(Gpios bits)
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 2, (byte)bits });
+        }
+
+        /// <summary>
+        ///     Use this function to set one or several GPIOs to logical low level.
+        ///     The respective ports must have been configured to output in advance.
+        /// </summary>
+        /// <param name="bits">Specify the GPIOs that shall be set to a logical level. Several GPIOs can
+        ///     be handled simultaneously by using the bitwise or-operator (|).</param>
+        /// <returns></returns>
+        public async Task GpioClearBitsAsync(Gpios bits)
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 3, (byte)bits });
+        }
+
+        /// <summary>
+        ///     Use this function to toggle the logical level of one or several GPIOs.
+        ///     The respective ports must have been configured to output in advance.
+        /// </summary>
+        /// <param name="bits">Specify the GPIOs that shall be set to a logical level. Several GPIOs can
+        ///     be handled simultaneously by using the bitwise or-operator (|).</param>
+        /// <returns></returns>
+        public async Task GpioToggleBitsAsync(Gpios bits)
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 4, (byte)bits });
+        }
+
+        /// <summary>
+        ///     Use this function to generate a pulse-width modulated square waveform with constant frequency on one
+        ///     or several GPIOs. The respective ports must have been configured to output in advance.
+        /// </summary>
+        /// <param name="bits">Specify the GPIOs that shall generate the waveform.</param>
+        /// <param name="timeHi">Specify the duration for logical high level in milliseconds.</param>
+        /// <param name="timeLo">Specify the duration for logical low level in milliseconds.</param>
+        /// <returns></returns>
+        public async Task GpioBlinkBitsAsync(Gpios bits, int timeHi, int timeLo)
+        {
+            List<byte> bytes = new List<byte>() { API_PERIPH, 5 };
+            bytes.Add((byte)bits);
+            bytes.AddWord(timeHi);
+            bytes.AddWord(timeLo);
+            await CallFunctionAsync(bytes.ToArray());
+        }
+
+        /// <summary>
+        /// Use this function to read the logical level of one GPIO that has been configured as input.
+        /// </summary>
+        /// <param name="bit">Specify the GPIO that shall be read.</param>
+        /// <returns>If the GPIO has logical high level, the return value is 1, otherwise it is 0.</returns>
+        public async Task<bool> GpioTestBitAsync(Gpios bit)
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_PERIPH, 6, (byte)bit });
+            var result = parser.ParseBool();
+            return result;
+        }
+
+        /// <summary>
+        /// Play a beep on the device.
+        /// </summary>
+        /// <param name="volume">Specify the volume in percent from 0 to 100.</param>
+        /// <param name="frequency">Specify the frequency in Hertz from 500 to 10000.</param>
+        /// <param name="onTime">Specify the duration of the beep in milliseconds from 0 to 10000000.</param>
+        /// <param name="offTime">Specify the length of the pause after the beep in milliseconds from 0 to
+        ///     10000000. This is useful for generating melodies.If this is not required, the
+        ///     parameter may have the value 0.</param>
+        /// <returns></returns>
+        public async Task BeepAsync(byte volume, int frequency, int onTime, int offTime)
+        {
+            List<byte> bytes = new List<byte>() { API_PERIPH, 7 };
+            bytes.Add(volume);
+            bytes.AddWord(frequency);
+            bytes.AddWord(onTime);
+            bytes.AddWord(offTime);
+            await CallFunctionAsync(bytes.ToArray());
+        }
+
+        public async Task DiagLedOnAsync()
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 8 });
+        }
+
+        public async Task DiagLedOffAsync()
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 9 });
+        }
+
+        public async Task DiagLedToggleAsync()
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 10 });
+        }
+
+        public async Task<bool> DiagLedIsOnAsync()
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_PERIPH, 11 });
+            var result = parser.ParseBool();
+            return result;
+        }
+
+        // TODO: SYSFUNC(API_PERIPH,12, void SendWiegand(int GPIOData0, int GPIOData1, int PulseTime, int IntervalTime,const byte* Bits,int BitCount))
+        // TODO: SYSFUNC(API_PERIPH,13, void SendOmron(int GPIOClock, int GPIOData, int T1, int T2, int T3,const byte* Bits,int BitCount))
+        // Not supported: SYSFUNC(API_PERIPH,14, bool GPIOPlaySequence(const int* NewSequence,int ByteCount))
+        // Not supported: SYSFUNC(API_PERIPH,15, void GPIOStopSequence(void))
+
+        /// <summary>
+        /// Use this function to initialize the respective GPIOs to drive LEDs.
+        /// </summary>
+        /// <param name="leds">Specify the GPIOs that shall be configured for LED operation.</param>
+        /// <returns></returns>
+        public async Task LedInitAsync(Leds leds = Leds.All)
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 16, (byte)leds });
+        }
+
+        /// <summary>
+        /// Use this function to set one or several LEDs on.
+        /// </summary>
+        /// <param name="leds">Specify the LEDs that shall be set on.</param>
+        /// <returns></returns>
+        public async Task LedOnAsync(Leds leds)
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 17, (byte)leds });
+        }
+
+        /// <summary>
+        /// Use this function to set one or several LEDs off.
+        /// </summary>
+        /// <param name="leds">Specify the LEDs that shall be set off.</param>
+        /// <returns></returns>
+        public async Task LedOffAsync(Leds leds)
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 18, (byte)leds });
+        }
+
+        /// <summary>
+        /// Use this function to toggle one or several LEDs.
+        /// </summary>
+        /// <param name="leds">Specify the LEDs that shall be toggled.</param>
+        /// <returns></returns>
+        public async Task LedToggleAsync(Leds leds)
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 19, (byte)leds });
+        }
+
+        /// <summary>
+        /// Use this function to let one or several LEDs blink.
+        /// </summary>
+        /// <param name="leds">Specify the LEDs that shall blink.</param>
+        /// <param name="onTime">Specify the on-time in milliseconds.</param>
+        /// <param name="offTime">Specify the off-time in milliseconds.</param>
+        /// <returns></returns>
+        public async Task LedBlinkAsync(Leds leds, int onTime, int offTime)
+        {
+            List<byte> bytes = new List<byte>() { API_PERIPH, 20 };
+            bytes.Add((byte)leds);
+            bytes.AddWord(onTime);
+            bytes.AddWord(offTime);
+            await CallFunctionAsync(bytes.ToArray());
+        }
+
+        // Not supported: SYSFUNC(API_PERIPH,21,bool GPIOConfigureInterrupt(int GPIOBits,bool Enable,int Edge))
+
+        /// <summary>
+        /// Turn on beep with infinite length.
+        /// </summary>
+        /// <param name="volume">Specify the volume in percent from 0 to 100.</param>
+        /// <param name="frequency">Specify the frequency in Hertz from 500 to 10000.</param>
+        /// <returns></returns>
+        public async Task BeepOnAsync(byte volume, int frequency)
+        {
+            List<byte> bytes = new List<byte>() { API_PERIPH, 22 };
+            bytes.Add(volume);
+            bytes.AddWord(frequency);
+            await CallFunctionAsync(bytes.ToArray());
+        }
+
+        /// <summary>
+        /// Turn off beep.
+        /// </summary>
+        /// <returns></returns>
+        public async Task BeepOffAsync()
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 23 });
+        }
+
+        // Not supported: SYSFUNC(API_PERIPH,24,void PlayMelody(const byte *Melody,int MelodyLength))
+
+        #endregion
+
+        #region API_RF
+
+        public const int API_RF = 5;
+
+        /// <summary>
+        ///     Use this function to search a transponder in the reading range of TWN4. TWN4 is searching for all types
+        ///     of transponders, which have been specified via function SetTagTypes. If a transponder has been found,
+        ///     tag type, length of ID and ID data itself are returned.
+        /// </summary>
+        /// <param name="maxIDBytes">A value, which specifies the buffer size of ID.</param>
+        /// <returns>A SearchTagResult. If tag.Found == true, ChipType and ID are returned.</returns>
+        public async Task<SearchTagResult> SearchTagAsync(byte maxIDBytes = byte.MaxValue)
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_RF, 0, maxIDBytes });
+            var tag = new SearchTagResult();
+            tag.Found = parser.ParseBool();
+            if (tag.Found)
+            {
+                tag.ChipType = (ChipType)parser.ParseByte();
+                tag.IDBitCount = parser.ParseByte();
+                tag.IDBytes = parser.ParseVarByteArray();
+            }
+            return tag;
+        }
+
+        public class SearchTagResult
+        {
+            public bool Found { get; set; }
+            /// <summary>
+            /// Property is called TagType in the API.
+            /// </summary>
+            public ChipType ChipType { get; set; }
+            public byte IDBitCount { get; set; }
+            public byte[] IDBytes { get; set; }
+
+            public string IDHexString
+            {
+                get
+                {
+                    return ByteConverter.GetStringFrom(IDBytes);
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Turn off RF field. If no further operations are required on a transponder found via function SearchTag you
+        ///     may use this command to minimize power consumption of TWN4.
+        /// </summary>
+        /// <returns></returns>
+        public async Task SetRFOffAsync()
+        {
+            await CallFunctionAsync(new byte[] { API_RF, 1 });
+        }
+
+        /// <summary>
+        /// Use this function to configure the transponders, which are searched by function SearchTag.
+        /// </summary>
+        /// <param name="lfTagTypes"></param>
+        /// <param name="hfTagTypes"></param>
+        /// <returns></returns>
+        public async Task SetTagTypesAsync(LFTagTypes lfTagTypes, HFTagTypes hfTagTypes)
+        {
+            List<byte> bytes = new List<byte>() { API_RF, 2 };
+            bytes.AddLong((uint)lfTagTypes);
+            bytes.AddLong((uint)hfTagTypes);
+            await CallFunctionAsync(bytes.ToArray());
+        }
+
+        /// <summary>
+        ///     This function returns the transponder types currently being searched for by function SearchTag separated
+        ///     by frequency (LF and HF).
+        /// </summary>
+        /// <returns>Tag types.</returns>
+        public async Task<GetTagTypesResult> GetTagTypesAsync()
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_RF, 3 });
+            var lf = parser.ParseLong();
+            var hf = parser.ParseLong();
+
+            return new GetTagTypesResult() { LFTagTypes = (LFTagTypes)lf, HFTagTypes = (HFTagTypes)hf };
+        }
+
+        public class GetTagTypesResult
+        {
+            public LFTagTypes LFTagTypes { get; internal set; }
+            public HFTagTypes HFTagTypes { get; internal set; }
+        }
+
+
+        /// <summary>
+        ///     This function returns the transponder types, which are actually supported by the individual TWN4 separated
+        ///     by frequency (LF and HF). Also the P-option is taken into account. This means, if the specific TWN4
+        ///     has no option P, the appropriate transponders are not returned as supported type of transponder.
+        /// </summary>
+        /// <returns>Tag types.</returns>
+        public async Task<GetSupportedTagTypesResult> GetSupportedTagTypesAsync()
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_RF, 4 });
+            var lf = parser.ParseLong();
+            var hf = parser.ParseLong();
+
+            return new GetSupportedTagTypesResult() { LFTagTypes = (LFTagTypes)lf, HFTagTypes = (HFTagTypes)hf };
+        }
+
+        public class GetSupportedTagTypesResult
+        {
+            public LFTagTypes LFTagTypes { get; internal set; }
+            public HFTagTypes HFTagTypes { get; internal set; }
+        }
+
+        #endregion
+
+        #region API_ISO14443 / ISO14443 Transparent Transponder Access Functions
+
+        public const int API_ISO14443 = 18;
+
+        // TODO: SYSFUNC(API_ISO14443,  0, bool ISO14443A_GetATS(byte* ATS, int* ATSByteCnt, int MaxATSByteCnt))
+        // TODO: SYSFUNC(API_ISO14443,  1, bool ISO14443B_GetATQB(byte* ATQB, int* ATQBByteCnt, int MaxATQBByteCnt))
+        // TODO: SYSFUNC(API_ISO14443,  2, bool ISO14443_4_CheckPresence(void))
+        // TODO: SYSFUNC(API_ISO14443,  3, bool ISO14443_4_TDX(byte* TXRX, int TXByteCnt, int* RXByteCnt, int MaxRXByteCnt))
+        // TODO: SYSFUNC(API_ISO14443,  4, bool ISO14443A_GetATQA(byte* ATQA))
+        // TODO: SYSFUNC(API_ISO14443,  5, bool ISO14443A_GetSAK(byte* SAK))
+        // TODO: SYSFUNC(API_ISO14443,  6, bool ISO14443B_GetAnswerToATTRIB(byte* AnswerToATTRIB, int* AnswerToATTRIBByteCnt, int MaxAnswerToATTRIBByteCnt))
+        // TODO: SYSFUNC(API_ISO14443,  7, bool ISO14443_3_TDX(byte* TXRX, int TXByteCnt, int* RXByteCnt, int MaxRXByteCnt, int Timeout))
+
+        /// <summary>
+        /// Use this function to search the RF field for ISO14443A transponders. The result is a list of the UID of the respective transponders.
+        /// </summary>
+        /// <param name="maxIDBytes"></param>
+        /// <returns>A list containing the UIDs of all transponders.</returns>
+        /// <remarks>SYSFUNC(API_ISO14443,  8, bool ISO14443A_SearchMultiTag(int* UIDCnt, int* UIDListByteCnt, byte* UIDList, int MaxUIDListByteCnt))</remarks>
+        public async Task<List<byte[]>> ISO14443A_SearchMultiTagAsync(byte maxIDBytes = byte.MaxValue)
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_ISO14443, 8, maxIDBytes });
+            var tagList = new List<byte[]>();
+
+            var found = parser.ParseBool();
+            if (found)
+            {
+                var count = parser.ParseByte();
+                for (int i = 0; i < count; i++)
+                {
+                    var tag = parser.ParseVarByteArray();
+                    tagList.Add(tag);
+                }
+            }
+
+            return tagList;
+        }
+
+
+        // TODO: SYSFUNC(API_ISO14443,  9, bool ISO14443A_SelectTag(const byte* UID, int UIDByteCnt))
+        // TODO: SYSFUNC(API_ISO14443, 10, bool preISO14443B_GetATR(byte* ATR, int* ATRByteCnt, int MaxATRByteCnt))
+        // TODO: SYSFUNC(API_ISO14443, 11, bool ISO14443A_Reselect(void))
+
+
+        #endregion
+
+        #endregion
 
         #region Common
 
@@ -129,10 +696,10 @@ namespace Elatec.NET
         /// <param name="length"></param>
         /// <param name="freq"></param>
         /// <param name="vol"></param>
-        public void Beep(ushort iterations, ushort length, ushort freq, byte vol)
-        {
-            BeepAsync(iterations, length, freq, vol).GetAwaiter().GetResult();
-        }
+        //public void Beep(ushort iterations, ushort length, ushort freq, byte vol)
+        //{
+        //    BeepAsync(iterations, length, freq, vol).GetAwaiter().GetResult();
+        //}
 
         /// <summary>
         /// 
@@ -151,19 +718,19 @@ namespace Elatec.NET
         /// <param name="freq"></param>
         /// <param name="vol"></param>
         /// <returns></returns>
-        public async Task BeepAsync(ushort iterations, ushort length, ushort freq, byte vol)
-        {
-            for (uint i = 0; i < iterations; i++)
-            {
-                Result = await DoTXRXAsync(
-                    ByteConverter.GetBytesFrom(BEEP_CMD +
-                    ByteConverter.GetStringFrom(vol) +
-                    ByteConverter.GetStringFrom(BitConverter.GetBytes(freq)) +
-                    ByteConverter.GetStringFrom(BitConverter.GetBytes(length)) +
-                    ByteConverter.GetStringFrom(BitConverter.GetBytes(length)))
-                    );
-            }
-        }
+        //public async Task BeepAsync(ushort iterations, ushort length, ushort freq, byte vol)
+        //{
+        //    for (uint i = 0; i < iterations; i++)
+        //    {
+        //        Result = await DoTXRXAsync(
+        //            ByteConverter.GetBytesFrom(BEEP_CMD +
+        //            ByteConverter.GetStringFrom(vol) +
+        //            ByteConverter.GetStringFrom(BitConverter.GetBytes(freq)) +
+        //            ByteConverter.GetStringFrom(BitConverter.GetBytes(length)) +
+        //            ByteConverter.GetStringFrom(BitConverter.GetBytes(length)))
+        //            );
+        //    }
+        //}
 
         /// <summary>
         /// 
@@ -181,23 +748,13 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task GreenLEDAsync(bool On)
         {
-            Result = await DoTXRXAsync(
-                    ByteConverter.GetBytesFrom(LEDINIT_CMD +
-                    ByteConverter.GetStringFrom(0x0F))
-                    );
-            if(On)
+            if (On)
             {
-                Result = await DoTXRXAsync(
-                    ByteConverter.GetBytesFrom(LEDON_CMD +
-                    ByteConverter.GetStringFrom(0x02))
-                    );
+                await LedOnAsync(Leds.Green);
             }
             else
             {
-                Result = await DoTXRXAsync(
-                    ByteConverter.GetBytesFrom(LEDOFF_CMD +
-                    ByteConverter.GetStringFrom(0x02))
-                    );
+                await LedOffAsync(Leds.Green);
             }
         }
 
@@ -217,23 +774,13 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task RedLEDAsync(bool On)
         {
-            Result = await DoTXRXAsync(
-                    ByteConverter.GetBytesFrom(LEDINIT_CMD +
-                    ByteConverter.GetStringFrom(0x0F))
-                    );
             if (On)
             {
-                Result = await DoTXRXAsync(
-                    ByteConverter.GetBytesFrom(LEDON_CMD +
-                    ByteConverter.GetStringFrom(0x01))
-                    );
+                await LedOnAsync(Leds.Red);
             }
             else
             {
-                Result = await DoTXRXAsync(
-                    ByteConverter.GetBytesFrom(LEDOFF_CMD +
-                    ByteConverter.GetStringFrom(0x01))
-                    );
+                await LedOffAsync(Leds.Red);
             }
         }
 
@@ -283,36 +830,37 @@ namespace Elatec.NET
                 SAK = 0x00;
                 ATS = new byte[1] {0x00};
 
-                if (hf)
+                //if (hf)
+                //{
+                //    Result = await DoTXRXAsync(new byte[] { 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0xF7, 0xFF, 0xFF, 0xFF }); //SetChipTypes (HF Only)
+                //}
+                //else
+                //{
+                //    Result = await DoTXRXAsync(new byte[] { 0x05, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00 }); //Set Chip Types (LF Only)
+                //}
+
+                //if (legicOnly)
+                //{
+                //    Result = await DoTXRXAsync(new byte[] { 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00 }); //SetChipTypes (Legic Only)
+                //}
+
+                //Result = await DoTXRXAsync(new byte[] { 0x05, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF }); //Set Chip Types (All LF + HF)
+
+                var tag = await SearchTagAsync();
+                if (tag.Found)
                 {
-                    Result = await DoTXRXAsync(new byte[] { 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0xF7, 0xFF, 0xFF, 0xFF }); //SetChipTypes (HF Only)
+                    currentChip.CardType = tag.ChipType;
+                    currentChip.UID = tag.IDHexString;
                 }
                 else
                 {
-                    Result = await DoTXRXAsync(new byte[] { 0x05, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00 }); //Set Chip Types (LF Only)
+                    //GetChip UID if SearchTagAsync failed (SmartMX Elatec workaround)
+                    var multiTags = await ISO14443A_SearchMultiTagAsync();
+                    if (multiTags.Count > 0)
+                    {
+                        currentChip.UID = ByteConverter.GetStringFrom(multiTags[0]);
+                    }
                 }
-
-                if (legicOnly)
-                {
-                    Result = await DoTXRXAsync(new byte[] { 0x05, 0x02, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00 }); //SetChipTypes (Legic Only)
-                }
-
-                Result = await DoTXRXAsync(new byte[] { 0x05, 0x00, 0x20}); //GetChip
-
-                if (Result?.Length >= 3)
-                {
-                    currentChip.CardType = (ChipType)Result[2];
-                }
-                else if(hf)
-                {
-                    Result = await DoTXRXAsync(new byte[] { 0x12, 0x08, 0xFF }); //GetChip UID if GetChip failed (SmartMX elatec workaround) 
-                }
-                else if (legicOnly)
-                {
-                    Result = await DoTXRXAsync(new byte[] { 0x12, 0x08, 0xFF }); //GetChip UID if GetChip failed (SmartMX elatec workaround) 
-                }
-
-                currentChip.UID = ByteConverter.GetStringFrom(Result, 5);  //BitConverter.ToString(Result, 5, Result.Length-5);
 
                 switch (currentChip.CardType)
                 {
@@ -810,7 +1358,8 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task<bool> ConnectAsync()
         {
-            return (await DoTXRXAsync(new byte[] { 0 }))?[0] == 0x01; 
+            var version = await GetVersionStringAsync();
+            return version.StartsWith("TWN4");
         }
 
         #region Tools for Simple Protocol
@@ -856,6 +1405,71 @@ namespace Elatec.NET
         #endregion
 
         /// <summary>
+        /// Call a function of the TWN device in raw format. Sends the bytes provided by CMD and returns the response.
+        /// The caller is responsible for providing the correct input sequence, parsing the result and handling the errorCode.
+        /// 
+        /// Example: 
+        /// <code>
+        ///     byte[] result = await CallFunctionRawAsync(new byte[] { API_SYS, 3 });
+        ///     byte errorCode = result[0];
+        /// </code>
+        /// </summary>
+        /// <param name="CMD">Command to send to the device.</param>
+        /// <returns>The response of the device.</returns>
+        public async Task<byte[]> CallFunctionRawAsync(byte[] CMD)
+        {
+            return await DoTXRXAsync(CMD);
+        }
+
+        /// <summary>
+        /// Call a function of the TWN device in raw format. Sends the bytes provided by CMD and returns a ResponseParser wrapping the response.
+        /// The caller is responsible for providing the correct input sequence and handling errors.
+        /// 
+        /// Example: 
+        /// <code>
+        ///     var parser = await CallFunctionParserAsync(new byte[] { API_SYS, 3 });
+        ///     var errorCode = parser.ParseResponseError();
+        ///     if (errorCode != ResponseError.None)
+        ///         uint ticks = parser.ParseLong();
+        /// </code>
+        /// </summary>
+        /// <param name="CMD">Command to send to the device.</param>
+        /// <returns>A <see cref="ResponseParser"/> wrapping the response of the device.</returns>
+        public async Task<ResponseParser> CallFunctionParserAsync(byte[] CMD)
+        {
+            var result = await CallFunctionRawAsync(CMD);
+            var parser = new ResponseParser(result.ToList());
+            return parser;
+        }
+
+        /// <summary>
+        /// Call a function of the TWN device in raw format. Sends the bytes provided by CMD and returns a ResponseParser wrapping the response.
+        /// The caller is responsible for providing the correct input sequence.
+        /// If the device returns an error, it is thrown as a TwnException. The caller must NOT treat the first parser byte as an error code, as it has already been parsed.
+        /// 
+        /// Example: 
+        /// <code>
+        ///   try {
+        ///     var parser = await CallFunctionAsync(new byte[] { API_SYS, 3 });
+        ///     uint ticks = parser.ParseLong();
+        ///   } catch (TwnException e) {...}
+        /// </code>
+        /// </summary>
+        /// <param name="CMD">Command to send to the device.</param>
+        /// <returns>A <see cref="ResponseParser"/> wrapping the response of the device.</returns>
+        /// <exception cref="TwnException">Is thrown if a communication error occurs.</exception>
+        public async Task<ResponseParser> CallFunctionAsync(byte[] CMD)
+        {
+            var parser = await CallFunctionParserAsync(CMD);
+            var errorCode = parser.ParseResponseError();
+            if (errorCode != ResponseError.None)
+            {
+                throw new TwnException("Reader error: " + errorCode, errorCode);
+            }
+            return parser;
+        }
+
+        /// <summary>
         /// 
         /// </summary>
         /// <param name="CMD"></param>
@@ -877,7 +1491,7 @@ namespace Elatec.NET
                 using (SerialPort twnPort = new SerialPort())
                 {
                     // Initialize serial port
-                    twnPort.PortName = GetTWNPortName(portNumber);
+                    twnPort.PortName = PortName; //GetTWNPortName(portNumber);
                     twnPort.BaudRate = 9600;
                     twnPort.DataBits = 8;
                     twnPort.StopBits = System.IO.Ports.StopBits.One;
@@ -926,7 +1540,7 @@ namespace Elatec.NET
 
                     IsConnected = twnPort.IsOpen;
 
-                    if (CMD?[0] != 0 && IsConnected)
+                    if (IsConnected) // if (CMD?[0] != 0 && IsConnected)
                     {
                         // Discard com port inbuffer
                         twnPort.DiscardInBuffer();
@@ -968,163 +1582,14 @@ namespace Elatec.NET
 
         #region Tools for connect TWN4
 
-        /// <summary>
-        /// Get Registry Value From Key
-        /// </summary>
-        /// <param name="SubKey"></param>
-        /// <param name="ValueName"></param>
-        /// <returns></returns>
-        private string RegHKLMQuerySZ(string SubKey, string ValueName)
-        {
-            string Data = "";
 
-            try
-            {
-                RegistryKey Key = Registry.LocalMachine.OpenSubKey(SubKey);
-                if (Key == null)
-                    return "";
-                if (Key.GetValue(ValueName) != null)
-                    Data = Key.GetValue(ValueName).ToString();
-                else
-                    return "";
-                if (Data == "")
-                    return "";
-                if (Key.GetValueKind(ValueName) != RegistryValueKind.String)
-                    Data = "";
-                Key.Close();
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-            }
-
-            return Data;
-        }// End of RegHKLMQuerySZ
-
-        /// <summary>
-        /// Get Device From Devices in Registry
-        /// </summary>
-        /// <param name="Driver"></param>
-        /// <param name="DevicePath"></param>
-        /// <returns></returns>
-        private string FindUSBDevice(string Driver, string DevicePath)
-        {
-            int PortIndex = 0;
-
-            try
-            {
-                while (true)
-                {
-                    string Path = "SYSTEM\\CurrentControlSet\\Services\\" + Driver + "\\Enum";
-                    string Data = RegHKLMQuerySZ(Path, PortIndex.ToString());
-                    string secondData = RegHKLMQuerySZ(Path, (PortIndex + 1).ToString());
-
-                    if (Data == "")
-                    {
-                        return "";
-                    }
-                    else if ((Data.Substring(0, DevicePath.Length).ToUpper() == DevicePath) && secondData == "")
-                    {
-                        MoreThanOneReader = false;
-                        return Data;
-                    }
-                    else if ((Data.Substring(0, DevicePath.Length).ToUpper() == DevicePath) && secondData != "")
-                    {
-                        MoreThanOneReader = true;
-                        return Data;
-                    }    
-                    else
-                    {
-                        return "";
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-            }
-            return "";
-        }// End of FindUSBDevice
-
-        /// <summary>
-        /// GetComPort from Devices
-        /// </summary>
-        /// <param name="Device"></param>
-        /// <returns></returns>
-        private int GetCOMPortNr(string Device)
-        {
-            string Path, Data;
-
-            try
-            {
-                Path = "SYSTEM\\CurrentControlSet\\Enum\\" + Device + "\\Device Parameters";
-                Data = RegHKLMQuerySZ(Path, "PortName");
-
-                if (Data == "" || Data.Length < 4)
-                {
-                    return 0;
-                }
-
-                int PortNr = Convert.ToUInt16(Data.Substring(3));
-
-                if (PortNr < 1 || PortNr > 256)
-                {
-                    return 0;
-                }
-
-                return PortNr;
-            }
-            catch(Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-            }
-
-            return 0;
-        }// End of GetCOMPortNr
-
-        private string GetTWNPortName(int PortNr)
-        {
-            string PortName = "";
-
-            try
-            {
-                string path = FindUSBDevice("usbser", "USB\\VID_09D8&PID_0420\\");
-
-                if (PortNr == 0)
-                {
-                    int portNumber = GetCOMPortNr(path);
-                    if (portNumber != 0)
-                    {
-                        PortNr = portNumber;
-                        PortName = string.Format("COM{0}", PortNr);
-                    }
-                    else
-                    {
-                        PortName = "";
-                    }
-                }
-                else
-                {
-                    return string.Format("COM{0}", PortNr);
-                }
-                return PortName;
-            }
-            catch(Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-            }
-
-            return PortName;
-        }// End of GetTWNPortName
         #endregion
 
         #endregion
 
         #region Public Properties
-        public bool MoreThanOneReader
-        {
-            get; set;
-        }
+
+        public string PortName { get; private set; }
 
         public byte[] Result
         {
@@ -1949,8 +2414,10 @@ namespace Elatec.NET
         public void Dispose()
         {
             GC.SuppressFinalize(this);
+            //GreenLED(false);
             Dispose(true);
         }
+
     }
 
 
