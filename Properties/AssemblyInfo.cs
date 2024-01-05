@@ -10,7 +10,6 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("SimonsVoss")]
 [assembly: AssemblyProduct("Elatec.NET")]
-[assembly: AssemblyCopyright("Copyright © SimonsVoss 2019")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
