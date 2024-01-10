@@ -29,7 +29,7 @@ namespace Elatec.NET
             return Bytes[ParseIdx++];
         }
 
-        public int ParseWord()
+        public ushort ParseUInt16()
         {
             ushort num = 0;
             if (ParseIdx >= Bytes.Count - 1)
@@ -40,7 +40,7 @@ namespace Elatec.NET
             return (ushort)(num | (ushort)(Bytes[ParseIdx++] << 8));
         }
 
-        public uint ParseLong()
+        public uint ParseUInt32()
         {
             uint num = 0u;
             if (ParseIdx >= Bytes.Count - 3)
@@ -66,14 +66,14 @@ namespace Elatec.NET
 
         public byte[] ParseVarByteArray()
         {
-            int num = ParseByte();
+            byte num = ParseByte();
             var result = new byte[num];
             Bytes.CopyTo(ParseIdx, result, 0, num);
             ParseIdx += num;
             return result;
         }
 
-        public byte[] ParseFixByteArray(int num)
+        public byte[] ParseFixByteArray(byte num)
         {
             if (ParseIdx >= Bytes.Count - num + 1)
             {

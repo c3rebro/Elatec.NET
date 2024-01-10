@@ -1,4 +1,4 @@
-# Elatec.NET
+﻿# Elatec.NET
  Elatec TWN4 SimpleProtocol Wrapper for .NET
 
 Reader-Shop: https://www.elatec-shop.de/de/
@@ -155,3 +155,30 @@ usage example:
             }
         }
     }
+
+## Contributors ✨
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>  
+    <tbody>    
+        <tr>      
+            <td align="center" valign="top" width="14.28%">        
+                <a href="https://github.com/c3rebro">
+                    <img src="https://avatars.githubusercontent.com/u/5468524?v=4?s=100" width="100px;" alt="Steven (c3rebro)"/><br />        
+                    <sub><b>Steven (c3rebro)</b></sub></a><br />        
+                <a href="#code" title="Code">💻</a> 
+            <td align="center" valign="top" width="14.28%">
+                <a href="https://github.com/faiteanu">
+                    <img src="https://avatars.githubusercontent.com/u/63024793?v=4?s=100" width="100px;" alt="Fabian Aiteanu"/><br />      
+                    <sub><b>Fabian Aiteanu</b></sub></a><br />
+                <a href="#code" title="Code">💻</a> 
+        </tr>  
+    </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->

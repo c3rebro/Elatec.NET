@@ -11,7 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace ByteArrayHelper
+namespace Elatec.NET.Helpers.ByteArrayHelper
 {
 
     public class ByteArray
