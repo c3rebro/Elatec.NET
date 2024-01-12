@@ -9,10 +9,10 @@ namespace Elatec.NET
         /// </summary>
         /// <param name="bytes"></param>
         /// <param name="word"></param>
-        public static void AddWord(this List<byte> bytes, int word)
+        public static void AddUInt16(this List<byte> bytes, ushort word)
         {
-            bytes.Add((byte)((uint)word & 0xFFu));
-            bytes.Add((byte)((uint)(word >> 8) & 0xFFu));
+            bytes.Add((byte)(word & 0xFFu));
+            bytes.Add((byte)((word >> 8) & 0xFFu));
         }
 
         /// <summary>
@@ -20,7 +20,7 @@ namespace Elatec.NET
         /// </summary>
         /// <param name="bytes"></param>
         /// <param name="value"></param>
-        public static void AddLong(this List<byte> bytes, uint value)
+        public static void AddUInt32(this List<byte> bytes, uint value)
         {
             bytes.Add((byte)(value & 0xFFu));
             bytes.Add((byte)((value >> 8) & 0xFFu));

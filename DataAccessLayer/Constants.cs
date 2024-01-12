@@ -1,11 +1,4 @@
-﻿/*
- * Created by SharpDevelop.
- * Date: 12.10.2017
- * Time: 11:21
- *
- */
-
-using System;
+﻿using System;
 
 namespace Elatec.NET
 {
@@ -24,7 +17,9 @@ namespace Elatec.NET
         public const string TITLE_SUFFIX = "DEVELOPER PREVIEW"; //turns out special app versions
     }
 
-    
+    /// <summary>
+    /// Type of a chip, as returned by the reader.
+    /// </summary>
     public enum ChipType
     {
         NOTAG = 0,
@@ -69,6 +64,11 @@ namespace Elatec.NET
         TOPAZ = 0x89,     // "Topaz"
         CTS = 0x8A,       // "CTS256 / CTS512"
         BLELC = 0x8B,     // "Bluetooth Low Energy LEGIC Connect"
+        
+    }
+
+    public enum MifareChipSubType
+    {
         // Custom
         Unspecified = 0xB0,
         NTAG = 0xB1,
@@ -124,8 +124,6 @@ namespace Elatec.NET
         MifareUltralightC = 0xFC,
         GENERIC_T_CL_A = 0xFF
     }
-
-
 
     [Flags]
     public enum LFTagTypes : uint
@@ -212,6 +210,66 @@ namespace Elatec.NET
         UnusedParameters = 3,
         InvalidFunction = 4,
         ParserError = 5,
+    }
+
+    /// <summary>
+    ///     Values returned by <see cref="TWN4ReaderDevice.GetLastErrorAsync"/>, at least theoretically.
+    ///     In practice, the method also returns undocumented error codes.
+    /// </summary>
+    public enum ReaderError : uint
+    {
+        None = 0,
+
+        // --- General Errors ---
+        OutOfMemory = 1,
+        IsAlreadyInit = 2,
+        NotInit = 3,
+        IsAlreadyOpen = 4,
+        NotOpen = 5,
+        Range = 6,
+        Parameter = 7,
+        General = 8,
+        NotSupported = 9,
+        State = 10,
+        Compatibility = 11,
+        Data = 12,
+
+        // --- Storage Errors ---
+        UnknownStorageID = 100,
+        WrongIndex = 101,
+        FlashErase = 102,
+        FlashWrite = 103,
+        SectorNotFound = 104,
+        StorageFull = 105,
+        StorageInvalid = 106,
+        TransactionLimit = 107,
+
+        // --- File Errors ---
+        UnknownFS = 200,
+        FileNotFound = 201,
+        FileAlreadyExists = 202,
+        EndOfFile = 203,
+        StorageNotFound = 204,
+        StorageAlreadyMounted = 205,
+        AccessDenied = 206,
+        FileCorrupt = 207,
+        InvalidFileEnv = 208,
+        InvalidFileID = 209,
+        ResourceLimit = 210,
+
+        // --- I2C Errors ---
+        Timeout = 300,
+        PecErr = 301,
+        Ovr = 302,
+        /// <summary>
+        /// Acknowledge Error
+        /// </summary>
+        AF = 303,
+        Arlo = 304,
+        /// <summary>
+        /// Bus Error
+        /// </summary>
+        BErr = 305
     }
 
     #region GPIOs

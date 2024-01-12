@@ -1,7 +1,4 @@
-﻿using Elatec.NET;
-using System.Collections.Generic;
-
-namespace Elatec.NET.Model
+﻿namespace Elatec.NET.Cards.Mifare
 {
     /// <summary>
     /// Description of chipUid.
