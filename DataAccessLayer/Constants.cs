@@ -2,15 +2,6 @@
 
 namespace Elatec.NET
 {
-    // change key using mk = 0 enum
-    // allow change mk = 1 or-ing
-    // listing without mk = 2 or-ing
-    // create del without mk = 4 or-ing
-    // config changeable = 8 or-ing
-    // default setting = 11
-    // change using keyno = 224 enum
-    // change frozen = 240 enum
-
     public static class Constants
     {
         public const int MAX_WAIT_INSERTION = 200; //timeout for chip response in ms
@@ -64,9 +55,12 @@ namespace Elatec.NET
         TOPAZ = 0x89,     // "Topaz"
         CTS = 0x8A,       // "CTS256 / CTS512"
         BLELC = 0x8B,     // "Bluetooth Low Energy LEGIC Connect"
-        
+
     }
 
+    /// <summary>
+    /// Type of Mifare from NXP AN10833
+    /// </summary>
     public enum MifareChipSubType
     {
         // Custom
@@ -183,23 +177,6 @@ namespace Elatec.NET
     }
 
     /// <summary>
-    /// Currently Available Error Conditions
-    /// </summary>
-    public enum ElatecError
-    {
-        Empty,
-        NoError,
-        AuthenticationError,
-        NotReadyError,
-        IOError,
-        ItemAlreadyExistError,
-        IsNotTrue,
-        IsNotFalse,
-        OutOfMemory,
-        NotAllowed
-    }
-
-    /// <summary>
     /// A response to a TWN Simple Protocol command always starts with a byte, which reflects execution of the command on protocol level.
     /// </summary>
     public enum ResponseError : byte
@@ -311,7 +288,6 @@ namespace Elatec.NET
 
     #endregion
 
-
     /// <summary>
     ///     Colored LEDs
     /// </summary>
@@ -332,6 +308,8 @@ namespace Elatec.NET
         All = Red | Green | Yellow | Blue
     }
 
+    #region Mifare KeySettings
+
     /// <summary>
     /// 
     /// </summary>
@@ -342,17 +320,79 @@ namespace Elatec.NET
     }
 
     /// <summary>
+    /// Access Rights <see cref="DESFireAppAccessRights"/>
+    /// Number of Keys
+    /// KeyType <see cref="DESFireKeyType"/>
+    /// </summary>
+    public class DESFireKeySettings
+    {
+        public DESFireAppAccessRights AccessRights;
+        public UInt32 NumberOfKeys;
+        public DESFireKeyType KeyType;
+    }
+
+    /// <summary>
     /// CRYPTOMODE_AES128 = 2,
     /// CRYPTOMODE_3DES = 0
     /// CRYPTOMODE_3K3DES = 1
-    /// </summary>
-    
-    [Flags]
+    /// </summary>    
     public enum DESFireKeyType
     {
         DF_KEY_DES = 0,
         DF_KEY_3K3DES = 1,
         DF_KEY_AES = 2
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public class DESFireFileSettings
+    {
+        public DESFireFileAccessRights accessRights;
+        public DESFireFileType FileType;
+        public byte comSett;
+        public DataFileSetting dataFile;
+        public RecordFileSetting recordFile;
+        public ValueFileSetting valueFile;
+    }
+
+    /// <summary>
+    /// DESF_FILETYPE_STDDATAFILE           0
+    /// DESF_FILETYPE_BACKUPDATAFILE        1
+    /// DESF_FILETYPE_VALUEFILE             2
+    /// DESF_FILETYPE_LINEARRECORDFILE      3
+    /// DESF_FILETYPE_CYCLICRECORDFILE      4
+    /// </summary>
+    public enum DESFireFileType
+    {
+        DF_FT_STDDATAFILE           = 0,
+        DF_FT_BACKUPDATAFILE        = 1,
+        DF_FT_VALUEFILE             = 2,
+        DF_FT_LINEARRECORDFILE      = 3,
+        DF_FT_CYCLICRECORDFILE      = 4
+    }
+
+    public struct DataFileSetting
+    {
+        public UInt32 fileSize;
+    }
+
+    public struct RecordFileSetting
+    {
+        public UInt32 RecordSize;
+        public UInt32 MaxNumberOfRecords;
+        public UInt32 CurrentNumberOfRecords;
+    }
+
+    public struct ValueFileSetting
+    {
+        public UInt32 UpperLimit;
+        public UInt32 LowerLimit;
+        public UInt32 LimitedCreditValue;
+
+        public byte LimitedCreditEnabled;
+        public byte FreeGetValue;
+        public byte RFU;
     }
 
     /// <summary>
@@ -366,7 +406,7 @@ namespace Elatec.NET
     /// KS_CHANGE_KEY_FROZEN = 240
     /// </summary>
     [Flags]
-    public enum DESFireKeySettings
+    public enum DESFireAppAccessRights
     {
         KS_CHANGE_KEY_WITH_MK = 0,
         KS_ALLOW_CHANGE_MK = 1,
@@ -378,40 +418,15 @@ namespace Elatec.NET
         KS_CHANGE_KEY_FROZEN = 240
     }
 
-
-    public class DESFireFileSettings
-    {
-        public byte[] accessRights;
-        public byte FileType;
-        public byte comSett;
-        public DataFileSetting dataFile;
-        public RecordFileSetting recordFile;
-        public ValueFileSetting valueFile;
-    }
-
-    public struct DataFileSetting
-    {
-        public uint fileSize;
-    }
-
-    public struct RecordFileSetting
-    {
-
-    }
-
-    public struct ValueFileSetting
-    {
-
-    }
-
     /// <summary>
-    /// 
+    /// AccessRights to access a file. Stored in the app keysettings
     /// </summary>
-    public enum DESFireAccessRights
+    public class DESFireFileAccessRights
     {
-        DF_KS_DES,
-        DF_KS_3K3DES,
-        DF_KS_AES
+        public byte ReadKeyNo;
+        public byte WriteKeyNo;
+        public byte ReadWriteKeyNo;
+        public byte ChangeKeyNo;    
     }
 
     /// <summary>
@@ -419,28 +434,9 @@ namespace Elatec.NET
     /// </summary>
     public enum EncryptionMode
     {
-        CM_PLAIN,
-        CM_ENCRYPT,
-        DF_KS_AES
-    }
-
-    /// <summary>
-    /// Error Messages
-    /// </summary>
-    public enum Result
-    {
-        Empty,
-        NoError,
-        AuthenticationError,
-        DeviceNotReadyError,
-        IOError
-    }
-
-    public enum TaskAccessRights
-    {
-        DF_KEY0,
-        DF_KEY1,
-        DF_KEY2
+        CM_PLAIN = 0,
+        CM_MAC = 1,
+        CM_ENCRYPT = 3
     }
 
     public struct AccessBits
@@ -486,55 +482,59 @@ namespace Elatec.NET
         public string AccessBits { get => accessBits; set => accessBits = value; }
     }
 
-    /// <summary>
-    /// Music notes to be used with Beep() or PlayMusic().
-    /// </summary>
-    public static class Notes
-    {
-        public const int C3 = 1047;
-        public const int CIS3 = 1109;
-        public const int DES3 = 1109;
-        public const int D3 = 1175;
-        public const int DIS3 = 1245;
-        public const int ES3 = 1245;
-        public const int E3 = 1319;
-        public const int F3 = 1397;
-        public const int FIS3 = 1480;
-        public const int GES3 = 1480;
-        public const int G3 = 1568;
-        public const int GIS3 = 1661;
-        public const int AES3 = 1661;
-        public const int A3 = 1760;
-        public const int B3 = 1865;
-        public const int H3 = 1976;
-        public const int C4 = 2093;
-        public const int CIS4 = 2217;
-        public const int DES4 = 2217;
-        public const int D4 = 2349;
-        public const int DIS4 = 2489;
-        public const int ES4 = 2489;
-        public const int E4 = 2637;
-        public const int F4 = 2794;
-        public const int FIS4 = 2960;
-        public const int GES4 = 2960;
-        public const int G4 = 3136;
-        public const int GIS4 = 3322;
-        public const int AES4 = 3322;
-        public const int A4 = 3520;
-        public const int AIS4 = 3729;
-        public const int B4 = 3729;
-        public const int H4 = 3951;
-        public const int C5 = 4186;
-        public const int CIS5 = 4435;
-        public const int DES5 = 4435;
-        public const int D5 = 4699;
-        public const int DIS5 = 4978;
-        public const int ES5 = 4978;
-        public const int E5 = 5274;
-        public const int F5 = 5588;
+    #endregion
 
-        public const int Low = 2057;
-        public const int High = 2400;
+    /// <summary>
+    /// Pitch of Readerpiezo to be used with Beep() or Note() used by PlayMusic().
+    /// </summary>
+    public enum NotePitch
+    {
+        PAUSE = 0,
+
+        C3 = 1047,
+        CIS3 = 1109,
+        DES3 = 1109,
+        D3 = 1175,
+        DIS3 = 1245,
+        ES3 = 1245,
+        E3 = 1319,
+        F3 = 1397,
+        FIS3 = 1480,
+        GES3 = 1480,
+        G3 = 1568,
+        GIS3 = 1661,
+        AES3 = 1661,
+        A3 = 1760,
+        B3 = 1865,
+        H3 = 1976,
+        C4 = 2093,
+        CIS4 = 2217,
+        DES4 = 2217,
+        D4 = 2349,
+        DIS4 = 2489,
+        ES4 = 2489,
+        E4 = 2637,
+        F4 = 2794,
+        FIS4 = 2960,
+        GES4 = 2960,
+        G4 = 3136,
+        GIS4 = 3322,
+        AES4 = 3322,
+        A4 = 3520,
+        AIS4 = 3729,
+        B4 = 3729,
+        H4 = 3951,
+        C5 = 4186,
+        CIS5 = 4435,
+        DES5 = 4435,
+        D5 = 4699,
+        DIS5 = 4978,
+        ES5 = 4978,
+        E5 = 5274,
+        F5 = 5588,
+
+        LOW = 2057,
+        HIGH = 2400
     }
 
     /// <summary>

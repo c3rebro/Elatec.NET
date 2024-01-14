@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("Elatec.NET")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("SimonsVoss")]
+[assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("Elatec.NET")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

@@ -4,6 +4,9 @@ using System.Text;
 
 namespace Elatec.NET
 {
+    /// <summary>
+    /// Call the Constructor with a byte Array to Parse its Content.
+    /// </summary>
     public class ResponseParser
     {
         private List<byte> Bytes;
@@ -54,8 +57,17 @@ namespace Elatec.NET
             return num;
         }
 
+        /// <summary>
+        /// Check a signle Byte
+        /// </summary>
+        /// <returns>FALSE if Constructor called with a byte value == 0, TRUE otherwise</returns>
+        /// <exception cref="ApplicationException">throw: More than one Byte in Constructor</exception>
         public bool ParseBool()
         {
+            if (Bytes.Count != 1)
+            {
+                throw new ApplicationException("More than one Byte in Constructor");
+            }
             return ParseByte() != 0;
         }
 

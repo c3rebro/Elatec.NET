@@ -1,6 +1,4 @@
-﻿using Log4CSharp;
-
-using System;
+﻿using System;
 using System.IO.Ports;
 using System.Globalization;
 using System.Threading;
@@ -27,54 +25,23 @@ namespace Elatec.NET
     ///     This class offers communications methods with a TWN4 Reader device, e.g. TWN4 MultiTech 2.
     ///     The methods are on different abstraction levels:<br/>
     ///     <list type="number">
-    ///     <item>High level<br/>
-    ///     - e.g. <see cref="GetSingleChipAsync(bool)"/> providing detailed information</item>
-    ///     <item>TWN4 Simple Protocol APIs<br/>
-    ///     - e.g. <see cref="GpioSetBitsAsync(Gpios)"/></item>
     ///     <item>Low level TWN4 Simple Protocol APIs<br/>
     ///     - <see cref="CallFunctionAsync(byte[])"/> which takes a raw byte[] as input and returns a parser. Errors are thrown as TwnException.<br />
     ///     - See <see cref="CallFunctionParserAsync(byte[])"/> and <see cref="CallFunctionRawAsync(byte[])"/> for variants without error handling and parser.</item>
+    ///     <item>TWN4 Simple Protocol APIs<br/>
+    ///     - e.g. <see cref="GpioSetBitsAsync(Gpios)"/></item>
+    ///     <item>High level<br/>
+    ///     - e.g. <see cref="GetSingleChipAsync(bool)"/> providing detailed information</item>
     ///     </list>
     /// </summary>
     public class TWN4ReaderDevice : IDisposable
     {
-        private const bool RESULT_SUCCESS = true;
-        private const bool RESULT_FAILED = false;
-
-        //private protected int portNumber;        
-
         private bool _disposed;
+
         private static readonly object syncRoot = new object();
         private static TWN4ReaderDevice instance;
 
         #region ELATEC COMMANDS
-        private const string GET_LASTERR = "000A";
-
-        private const string BEEP_CMD = "0407";
-        private const string LEDINIT_CMD = "0410";
-        private const string LEDON_CMD = "0411";
-        private const string LEDOFF_CMD = "0412";
-
-        private const string MIFARE_CLASSIC_LOGIN = "0B00";
-        private const string MIFARE_CLASSIC_READBLOCK = "0B01";
-        private const string MIFARE_CLASSIC_WRITEBLOCK = "0B02";
-
-        private const string MIFARE_DESFIRE_GETAPPIDS = "0F00";
-        private const string MIFARE_DESFIRE_CREATEAPP = "0F01";
-        private const string MIFARE_DESFIRE_DELETEAPP = "0F02";
-        private const string MIFARE_DESFIRE_SELECTAPP = "0F03";
-        private const string MIFARE_DESFIRE_AUTH = "0F04";
-        private const string MIFARE_DESFIRE_GETKEYSETTINGS = "0F05";
-        private const string MIFARE_DESFIRE_GETFILEIDS = "0F06";
-        private const string MIFARE_DESFIRE_GETFILESETTINGS = "0F07";
-        private const string MIFARE_DESFIRE_READDATA = "0F08";
-        private const string MIFARE_DESFIRE_GETFREEMEMORY = "0F0E";
-        private const string MIFARE_DESFIRE_FORMATTAG = "0F0F";
-        private const string MIFARE_DESFIRE_CREATE_STDDATAFILE = "0F10";
-        private const string MIFARE_DESFIRE_DELETEFILE = "0F13";
-
-        private const string MIFARE_DESFIRE_CHANGEKEYSETTINGS = "0F18";
-        private const string MIFARE_DESFIRE_CHANGEKEY = "0F19";
 
         private const string ISO14443_GET_ATS = "1200";
         private const string ISO14443_4_TXD = "1203";
@@ -93,7 +60,6 @@ namespace Elatec.NET
                     if (instance == null)
                     {
                         instance = DeviceManager.GetAvailableReaders().FirstOrDefault();
-                        //instance = new TWN4ReaderDevice();
                         return instance;
 
                     }
@@ -110,15 +76,6 @@ namespace Elatec.NET
         /// </summary>
         public TWN4ReaderDevice()
         {
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="portName"></param>
-        public TWN4ReaderDevice(string portName)
-        {
-            PortName = portName;
         }
 
         /// <summary>
@@ -666,11 +623,99 @@ namespace Elatec.NET
 
         #endregion
 
+        #region API_MIFARECLASSIC / Mifare Classic Functions
+
+        public const int API_MIFARECLASSIC = 11;
+
+        public const int MIFARE_CLASSIC_LOGIN = 0;
+        public const int MIFARE_CLASSIC_READBLOCK = 1;
+        public const int MIFARE_CLASSIC_WRITEBLOCK = 2;
+
+        /// <summary>
+        /// Login to a Mifare Classic single Sector.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="keyType"></param>
+        /// <param name="sectorNumber"></param>
+        /// <returns></returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareClassic_LoginAsync(string key, byte keyType, byte sectorNumber)
+        {
+            List<byte> bytes = new List<byte>() { API_MIFARECLASSIC, MIFARE_CLASSIC_LOGIN };
+            bytes.AddRange(ByteConverter.GetBytesFrom(key));
+            bytes.AddUInt16(keyType);
+            bytes.AddUInt16(sectorNumber);
+            await CallFunctionAsync(bytes.ToArray());
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Read Data from Classic Chip
+        /// </summary>
+        /// <param name="blockNumber">DataBlock Number</param>
+        /// <returns>DATA</returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<byte[]> MifareClassic_ReadBlockAsync(byte blockNumber)
+        {
+            List<byte> bytes = new List<byte>() { API_MIFARECLASSIC, MIFARE_CLASSIC_READBLOCK };
+            bytes.Add(blockNumber);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (success)
+            {
+                return parser.ParseFixByteArray(16);
+            }
+            else
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Write Data to Classic Chip
+        /// </summary>
+        /// <param name="data">16 Bytes of Data to Write</param>
+        /// <param name="blockNumber">DataBlock Number</param>
+        /// <returns></returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareClassic_WriteBlockAsync(byte[] data, byte blockNumber)
+        {
+            List<byte> bytes = new List<byte>() { API_MIFARECLASSIC, MIFARE_CLASSIC_WRITEBLOCK, blockNumber };
+            bytes.AddRange(data);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        // TODO: SYSFUNC(API_MIFARECLASSIC, 3, bool MifareClassic_ReadValueBlock(int Block, int* Value))
+        // TODO: SYSFUNC(API_MIFARECLASSIC, 4, bool MifareClassic_WriteValueBlock(int Block, int Value))
+        // TODO: SYSFUNC(API_MIFARECLASSIC, 5, bool MifareClassic_IncrementValueBlock(int Block, int Value))
+        // TODO: SYSFUNC(API_MIFARECLASSIC, 6, bool MifareClassic_DecrementValueBlock(int Block, int Value))
+        // TODO: SYSFUNC(API_MIFARECLASSIC, 7, bool MifareClassic_CopyValueBlock(int SourceBlock, int DestBlock))
+
+
+        #endregion
+
         #region API_MIFAREULTRALIGHT / Mifare Ultralight Functions
 
         public const int API_MIFAREULTRALIGHT = 12;
 
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 0, bool MifareUltralight_ReadPage(int Page, byte* Data))
+
         /// <summary>
         ///     Though the page size of this transponder family is 4 bytes, the transponder always returns 16 bytes of data.
         ///     This is achieved by reading four consecutive data pages, e.g. if page 4 is to be read, the transponder also
@@ -693,12 +738,12 @@ namespace Elatec.NET
             return null;
         }
 
-
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 1, bool MifareUltralight_WritePage(int Page, const byte* Data))
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 2, bool MifareUltralightC_Authenticate(const byte* Key))
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 3, bool MifareUltralightC_SAMAuthenticate(int KeyNo, int KeyVersion, const byte* DIVInput, int DIVByteCnt))
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 4, bool MifareUltralightC_WriteKeyFromSAM(int KeyNo, int KeyVersion, const byte* DIVInput, int DIVByteCnt))
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 5, bool MifareUltralightEV1_FastRead(int StartPage, int NumberOfPages, byte* Data))
+        
         /// <summary>
         /// The Fast Read function reads a number of pages beginning at a starting page from the transponder.
         /// </summary>
@@ -717,13 +762,526 @@ namespace Elatec.NET
             return null;
         }
 
-
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 6, bool MifareUltralightEV1_IncCounter(int CounterAddr, int IncrValue))
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 7, bool MifareUltralightEV1_ReadCounter(int CounterAddr, int* CounterValue))
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 8, bool MifareUltralightEV1_ReadSig(byte* ECCSig))
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 9, bool MifareUltralightEV1_GetVersion(byte* Version))
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 10, bool MifareUltralightEV1_PwdAuth(const byte* Password, const byte* PwdAck))
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 11, bool MifareUltralightEV1_CheckTearingEvent(int CounterAddr, byte* ValidFlag))
+
+        #endregion
+
+        #region API_MIFAREDESFIRE / Mifare Desfire Functions
+
+        public const int API_MIFAREDESFIRE = 15;
+
+        private const byte CRYPTO_ENV = 0;
+        private const byte DESFIRE_KEYLENGTH = 0x10;
+        private const byte DESFIRE_MAX_FILEIDS = 0xFF;
+
+        private const int MIFARE_DESFIRE_GETAPPIDS = 0;
+        private const int MIFARE_DESFIRE_CREATEAPP = 1;
+        private const int MIFARE_DESFIRE_DELETEAPP = 2;
+        private const int MIFARE_DESFIRE_SELECTAPP = 3;
+        private const int MIFARE_DESFIRE_AUTH = 4;
+        private const int MIFARE_DESFIRE_GETKEYSETTINGS = 5;
+        private const int MIFARE_DESFIRE_GETFILEIDS = 6;
+        private const int MIFARE_DESFIRE_GETFILESETTINGS = 7;
+        private const int MIFARE_DESFIRE_READDATA = 8;
+        private const int MIFARE_DESFIRE_WRITEDATA = 9;
+        private const int MIFARE_DESFIRE_GETFREEMEMORY = 14;
+        private const int MIFARE_DESFIRE_FORMATTAG = 15;
+        private const int MIFARE_DESFIRE_CREATE_STDDATAFILE = 16;
+        private const int MIFARE_DESFIRE_DELETEFILE = 19;
+        private const int MIFARE_DESFIRE_CHANGEKEYSETTINGS = 24;
+        private const int MIFARE_DESFIRE_CHANGEKEY = 25;
+
+        /// <summary>
+        /// Retrieve the Available Application IDs after selecing PICC (App 0), Authentication is needed - depending on the security config
+        /// </summary>
+        /// <param name="maxAppIDCnt"></param>
+        /// <returns>a uint32[] of the available appids with 4bytes each, null if no apps are available or on error</returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<UInt32[]> MifareDesfire_GetAppIDsAsync(byte maxAppIDCnt = 28)
+        {
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETAPPIDS , CRYPTO_ENV };
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (success)
+            {
+                var appIDCnt = parser.ParseByte();
+
+                var appids = new UInt32[appIDCnt];
+
+                for (var i = 0; i < appIDCnt; i++)
+                {
+                    appids[i] = parser.ParseUInt32();
+                }
+
+                return appids;
+            }
+            else
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Creates a new Application
+        /// </summary>
+        /// <param name="_keySettingsTarget">byte: KS_CHANGE_KEY_WITH_MK = 0, KS_ALLOW_CHANGE_MK = 1, KS_FREE_LISTING_WITHOUT_MK = 2, KS_FREE_CREATE_DELETE_WITHOUT_MK = 4, KS_CONFIGURATION_CHANGEABLE = 8, KS_DEFAULT = 11, KS_CHANGE_KEY_WITH_TARGETED_KEYNO = 224, KS_CHANGE_KEY_FROZEN = 240</param>
+        /// <param name="_keyTypeTargetApplication">byte: 0 = 3DES, 1 = 3K3DES, 2 = AES</param>
+        /// <param name="_maxNbKeys">int max. number of keys</param>
+        /// <param name="_appID">int application id</param>
+        /// <returns></returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_CreateApplicationAsync(DESFireAppAccessRights keySettingsTarget, DESFireKeyType keyTypeTargetApplication, int maxNbKeys, int appID)
+        {
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_CREATEAPP, CRYPTO_ENV };
+            bytes.AddUInt32((UInt32)appID);
+            bytes.Add((byte)keySettingsTarget);
+            bytes.AddUInt32((UInt32)maxNbKeys);
+            bytes.AddUInt32((UInt32)keyTypeTargetApplication);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Select a Desfire Application
+        /// </summary>
+        /// <param name="appID"></param>
+        /// <returns></returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_DeleteApplicationAsync(uint appID)
+        {
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_DELETEAPP, CRYPTO_ENV };
+            bytes.AddUInt32((UInt32)appID);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Select a Mifare Desfire Application
+        /// </summary>
+        /// <param name="appID">The Application ID to select</param>
+        /// <returns>true if Application could be selected, false otherwise</returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_SelectApplicationAsync(uint appID)
+        {          
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_SELECTAPP, CRYPTO_ENV };
+            bytes.AddUInt32((UInt32)appID);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Authenticate to a previously selected desfire application
+        /// </summary>
+        /// <param name="key">string: a 16 bytes key e.g. 00000000000000000000000000000000</param>
+        /// <param name="keyNo">byte: the keyNo to use</param>
+        /// <param name="keyType">byte: 0 = 3DES, 1 = 3K3DES, 2 = AES</param>
+        /// <param name="authMode">byte: 1 = EV1 Mode, 0 = EV0 Mode</param>
+        /// <returns></returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_AuthenticateAsync(string key, byte keyNo, byte keyType, byte authMode)
+        {
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_AUTH, CRYPTO_ENV , keyNo, DESFIRE_KEYLENGTH};
+            bytes.AddRange(ByteConverter.GetBytesFrom(key));
+            bytes.Add(keyType);
+            bytes.Add(authMode);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Get the KeySettings (Properties: KeySettings, NumberOfKeys, KeyType) of the selected Application. Authentication is needed - depending on the security config
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<DESFireKeySettings> MifareDesfire_GetKeySettingsAsync()
+        {
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETKEYSETTINGS, CRYPTO_ENV};
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (success)
+            {
+                var keySettings = new DESFireKeySettings();
+
+                keySettings.AccessRights = (DESFireAppAccessRights)parser.ParseByte();
+                keySettings.NumberOfKeys = parser.ParseUInt32();
+                keySettings.KeyType = (DESFireKeyType)parser.ParseUInt32();
+
+                return keySettings;
+            }
+            else
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Retrieve the available file IDs after selecing app and authenticating to app
+        /// </summary>
+        /// <returns>byte[] array of available file ids</returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<byte[]> MifareDesfire_GetFileIDsAsync()
+        {
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETFILEIDS, CRYPTO_ENV , DESFIRE_MAX_FILEIDS};
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (success)
+            {
+                var filesCount = parser.ParseByte();
+                var fids = new byte[filesCount];
+
+                for (var i = 0; i < filesCount; i++)
+                {
+                    fids[i] = parser.ParseByte();
+                }
+
+                return fids;
+            }
+            else
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Get the filesettings of a fileid
+        /// </summary>
+        /// <param name="fileNo">ID of the desired file</param>
+        /// <returns><see cref="DESFireFileSettings"/></returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<DESFireFileSettings> MifareDesfire_GetFileSettingsAsync(byte fileNo)
+        {
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETFILESETTINGS, CRYPTO_ENV, fileNo };
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (success)
+            {
+                var fileSettings = new DESFireFileSettings();
+
+                fileSettings.FileType = (DESFireFileType)parser.ParseByte();
+                fileSettings.comSett = parser.ParseByte();
+
+                var ar = parser.ParseUInt16();
+
+                fileSettings.accessRights.ReadKeyNo = (byte)(ar & 0x000F);
+                fileSettings.accessRights.WriteKeyNo = (byte)((ar & 0x00F0) >> 4);
+                fileSettings.accessRights.ReadWriteKeyNo = (byte)((ar & 0x0F00) >> 8);
+                fileSettings.accessRights.ChangeKeyNo = (byte)((ar & 0xF000) >> 12);
+
+                fileSettings.dataFile.fileSize = parser.ParseUInt32();
+
+                fileSettings.valueFile.LowerLimit = parser.ParseUInt32();
+                fileSettings.valueFile.UpperLimit = parser.ParseUInt32();
+                fileSettings.valueFile.LimitedCreditValue = parser.ParseUInt32();
+
+                fileSettings.valueFile.LimitedCreditEnabled = parser.ParseByte();
+                fileSettings.valueFile.FreeGetValue = parser.ParseByte();
+                fileSettings.valueFile.RFU = parser.ParseByte();
+
+                fileSettings.recordFile.RecordSize = parser.ParseUInt32();
+                fileSettings.recordFile.MaxNumberOfRecords = parser.ParseUInt32();
+                fileSettings.recordFile.CurrentNumberOfRecords = parser.ParseUInt32();
+
+                return fileSettings;
+            }
+            else
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Read out Data on a Desfire
+        /// </summary>
+        /// <param name="fileNo">byte: filenumber: 0x00 - 0x14</param>
+        /// <param name="length">int: filesize to read</param>
+        /// <param name="comSet">byte: 0 = Plain, 1 = CMAC, 2 = Encrypted</param>
+        /// <returns>byte[] of data</returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<byte[]> MifareDesfire_ReadDataAsync(byte fileNo, int length, EncryptionMode mode)
+        {
+            var data = new byte[length];
+            var iterations = (length / 0xFF) == 0 ? 1 : (length / 0xFF); // more than one byte?
+            var dataLengthToRead = length;
+
+            for (var i = 0; i < iterations; i++)
+            {
+                List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_READDATA, CRYPTO_ENV, fileNo };
+
+                bytes.AddUInt16((UInt16)(i * 0xFF));
+                bytes.Add((byte)(dataLengthToRead >= 0xFF ? 0xFF : length));
+                bytes.Add((byte)mode);
+
+                var parser = await CallFunctionAsync(bytes.ToArray());
+                var success = parser.ParseBool();
+
+                if (success)
+                {
+                    Array.Copy(parser.ParseVarByteArray(), 0, data, (i * 0xFF), (dataLengthToRead >= 0xFF ? 0xFF : length));
+                }
+                else
+                {
+                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                }
+            }
+
+            return data;
+        }
+
+        /// <summary>
+        /// Write Data to a Desfire File
+        /// </summary>
+        /// <param name="fileNo">The file number to read</param>
+        /// <param name="data"></param>
+        /// <param name="mode"><see cref="EncryptionMode"/></param>
+        /// <returns></returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_WriteDataAsync(byte fileNo, byte[] data, EncryptionMode mode)
+        {
+            var iterations = (data.Length / 0xFF) == 0 ? 1 : (data.Length / 0xFF); // more than one byte?
+            var lengthToWrite = data.Length;
+            var success = false;
+
+            for (var i = 0; i < iterations; i++)
+            {
+                List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_WRITEDATA, CRYPTO_ENV, fileNo };
+
+                lengthToWrite = lengthToWrite >= 0xFF ? 0xFF : lengthToWrite; // more data?
+
+                var dataToWrite = new byte[(lengthToWrite >= 0xFF ? 0xFF : lengthToWrite)];
+                Array.Copy(data, (i * 0xFF), dataToWrite, 0, (lengthToWrite >= 0xFF ? 0xFF : lengthToWrite));
+                
+                bytes.AddUInt16((UInt16)(i * 0xFF));
+                bytes.Add((byte)lengthToWrite);
+                bytes.AddRange(data);
+
+                var parser = await CallFunctionAsync(bytes.ToArray());
+                success = parser.ParseBool();
+
+                if (success)
+                {
+                    continue;
+                }
+                else
+                {
+                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                }
+            }
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        //TODO: SYSFUNC(API_DESFIRE,10, bool DESFire_GetValue(int CryptoEnv, int FileNo, int* Value, int CommSet))
+        //TODO: SYSFUNC(API_DESFIRE,11, bool DESFire_Credit(int CryptoEnv, int FileNo, const int Value, int CommSet))
+        //TODO: SYSFUNC(API_DESFIRE,12, bool DESFire_Debit(int CryptoEnv, int FileNo, const int Value, int CommSet))
+        //TODO: SYSFUNC(API_DESFIRE,13, bool DESFire_LimitedCredit(int CryptoEnv, int FileNo, const int Value, int CommSet))
+
+        /// <summary>
+        /// Get the free Memory of a desfire. 
+        /// </summary>
+        /// <returns>a uint32 of the available memory if supported</returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<UInt16> MifareDesfire_GetFreeMemoryAsync()
+        {
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETFREEMEMORY, CRYPTO_ENV };
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (success)
+            {
+                return parser.ParseUInt16();
+            }
+            else
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Format a Chip
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_FormatTagAsync()
+        {
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_FORMATTAG, CRYPTO_ENV };
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Create a std data file on a desfire
+        /// </summary>
+        /// <param name="fileNo"></param>
+        /// <param name="fileType"><see cref="DESFireFileType"/></param>
+        /// <param name="mode"><see cref="EncryptionMode"/></param>
+        /// <param name="accessRights"><see cref="DESFireFileAccessRights"/></param>
+        /// <param name="fileSize"></param>
+        /// <returns></returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_CreateStdDataFileAsync(byte fileNo, DESFireFileType fileType, EncryptionMode mode, DESFireFileAccessRights accessRights, UInt32 fileSize)
+        {
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_CREATE_STDDATAFILE, CRYPTO_ENV, fileNo, (byte)fileType, (byte)mode };
+
+            UInt16 fileAccessRights = 0;
+
+            fileAccessRights |= accessRights.ReadKeyNo;
+            fileAccessRights |= (byte)(accessRights.WriteKeyNo << 4);
+            fileAccessRights |= (byte)(accessRights.ReadWriteKeyNo << 8);
+            fileAccessRights |= (byte)(accessRights.ChangeKeyNo << 12);
+
+            bytes.AddUInt16(fileAccessRights);
+            bytes.AddUInt32(fileSize);
+            bytes.AddRange(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        //TODO: SYSFUNC(API_DESFIRE,17, bool DESFire_CreateValueFile(int CryptoEnv, int FileNo, const TDESFireFileSettings* FileSettings))
+        //TODO: SYSFUNC(API_DESFIRE,18, bool DESFire_GetVersion(int CryptoEnv, TDESFireVersion* Version))
+
+        /// <summary>
+        /// Delete a File
+        /// </summary>
+        /// <param name="fileNo">byte: Filenumber to delete</param>
+        /// <returns>true if the Operation was successful, false otherwise</returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_DeleteFileAsync(byte fileNo)
+        {
+            {
+                List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_DELETEFILE, CRYPTO_ENV, fileNo };
+
+                var parser = await CallFunctionAsync(bytes.ToArray());
+                var success = parser.ParseBool();
+
+                if (!success)
+                {
+                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                }
+            }
+        }
+
+        //TODO: SYSFUNC(API_DESFIRE,20, bool DESFire_CommitTransaction(int CryptoEnv))
+        //TODO: SYSFUNC(API_DESFIRE,21, bool DESFire_AbortTransaction(int CryptoEnv))
+        //TODO: SYSFUNC(API_DESFIRE,22, bool DESFire_GetUID(int CryptoEnv, byte* UID, int* Length, int BufferSize))
+        //TODO: SYSFUNC(API_DESFIRE,23, bool DESFire_GetKeyVersion(int CryptoEnv, int KeyNo, byte* KeyVer))
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="keySettings"></param>
+        /// <param name="numberOfKeys"></param>
+        /// <param name="keyType"></param>
+        /// <returns></returns>
+        public async Task MifareDesfire_ChangeKeySettingsAsync(DESFireAppAccessRights keySettings, UInt32 numberOfKeys, DESFireKeyType keyType)
+        {
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_CHANGEKEYSETTINGS, CRYPTO_ENV};
+
+            bytes.Add((byte)keySettings);
+            bytes.AddUInt32(numberOfKeys);
+            bytes.AddUInt32((byte)keyType);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Changes a Key
+        /// </summary>
+        /// <param name="oldKey"></param>
+        /// <param name="newKey"></param>
+        /// <param name="keyVersion"></param>
+        /// <param name="accessRights"></param>
+        /// <param name="keyNo"></param>
+        /// <param name="numberOfKeys"></param>
+        /// <param name="keyType">The Type of the new Key</param>
+        /// <returns></returns>
+        public async Task MifareDesfire_ChangeKeyAsync(string oldKey, string newKey, byte keyVersion, byte accessRights, byte keyNo, UInt32 numberOfKeys, DESFireKeyType keyType)
+        {
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_CHANGEKEY, CRYPTO_ENV, keyNo, DESFIRE_KEYLENGTH };
+            bytes.Add(DESFIRE_KEYLENGTH);
+            bytes.AddRange(ByteConverter.GetBytesFrom(oldKey));
+            bytes.Add(DESFIRE_KEYLENGTH);
+            bytes.AddRange(ByteConverter.GetBytesFrom(newKey));
+            bytes.Add(keyVersion);
+            bytes.AddUInt32(numberOfKeys);
+            bytes.AddUInt32((byte)keyType);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        //TODO: SYSFUNC(API_DESFIRE,26, bool DESFire_ChangeFileSettings(int CryptoEnv, int FileNo, int NewCommSet, int OldAccessRights, int NewAccessRights))
+        //TODO: SYSFUNC(API_DESFIRE,27, bool DESFire_DisableFormatTag(int CryptoEnv))
+        //TODO: SYSFUNC(API_DESFIRE,28, bool DESFire_EnableRandomID(int CryptoEnv))
+        //TODO: SYSFUNC(API_DESFIRE,29, bool DESFire_SetDefaultKey(int CryptoEnv, const byte* Key, int KeyByteCount, byte KeyVersion))
+        //TODO: SYSFUNC(API_DESFIRE,30, bool DESFire_SetATS(int CryptoEnv, const byte* ATS, int Length))
+        //TODO: SYSFUNC(API_DESFIRE,31, bool DESFire_CreateRecordFile(int CryptoEnv, int FileNo, const TDESFireFileSettings* FileSettings))
+        //TODO: SYSFUNC(API_DESFIRE,32, bool DESFire_ReadRecords(int CryptoEnv, int FileNo, byte* RecordData, int* RecDataByteCnt, int Offset, int NumberOfRecords, int RecordSize, int CommSet))
+        //TODO: SYSFUNC(API_DESFIRE,33, bool DESFire_WriteRecord(int CryptoEnv, int FileNo, const byte* Data, int Offset, int Length, int CommSet))
+        //TODO: SYSFUNC(API_DESFIRE,34, bool DESFire_ClearRecordFile(int CryptoEnv, int FileNo))
 
         #endregion
 
@@ -938,141 +1496,59 @@ namespace Elatec.NET
 
         #endregion
 
+        #region High Level APIs
+
+        /// <summary>
+        /// Play a melody on the device. 
+        /// </summary>
+        /// <param name="tempo">Specify the BPM.</param>
+        /// <param name="song">Specify the song as List of Tones <see cref="Tone"/>.<</param>
+        /// <returns></returns>
+        public async Task PlayMelody(int tempo, List<Tone> song)
+        {
+            foreach (Tone tone in song)
+            {
+                ushort onTime, offTime;
+                ushort duration = (ushort)(1000 * 1 / tempo * 60 / (tone.Value / 16));
+
+                if (tone.Pitch > 0)
+                {
+                    onTime = duration;
+                    offTime = 0;
+                }
+                else // Play a PAUSE
+                {
+                    onTime = 0;
+                    offTime = duration;
+                }
+
+                if (tone.IsStaccato)    
+                {
+                    onTime = (ushort)(duration / 2);
+                    offTime = (ushort)(duration / 2);
+                }
+
+                await BeepAsync(tone.Volume, (ushort)tone.Pitch, onTime, offTime);
+            }
+        }
+
+        /// <summary>
+        /// Each tone contains a volume, a Pitch <see cref="NotePitch"/> and a velue. It also contains the optional IsStaccato Property which Produces a Tone with a Pulsewidth of 50%.  
+        /// Value is calculated as 1 / tempo * 60 (length of a cadence) * 1 / (ToneValue / 16). 
+        /// Where Value is the Tone Length with a Base 16. So 16 is a whole note, 8 is a half note, 4 is a quarter note, 2 a quaver and 1 a semiquaver.
+        /// The dotted Notes are then 12 for dotted half, 6 for dotted quarter and 3 for a dotted quaver
+        /// </summary>
+        public class Tone
+        {
+            public int Value    {       get; set;   }
+            public byte Volume  {       get; set;   }
+            public NotePitch Pitch  {   get; set;   }
+            public bool IsStaccato  {   get; set;   }
+        }
+
+        #endregion
+
         #region Common
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public void Beep()
-        {
-            BeepAsync().GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="iterations"></param>
-        /// <param name="length"></param>
-        /// <param name="freq"></param>
-        /// <param name="vol"></param>
-        //public void Beep(ushort iterations, ushort length, ushort freq, byte vol)
-        //{
-        //    BeepAsync(iterations, length, freq, vol).GetAwaiter().GetResult();
-        //}
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public async Task BeepAsync()
-        {
-            Result = await DoTXRXAsync(new byte[] { 0x04, 0x07, 0x64, 0x60, 0x09, 0x54, 0x01, 0xF4, 0x01 }); 
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="iterations"></param>
-        /// <param name="length"></param>
-        /// <param name="freq"></param>
-        /// <param name="vol"></param>
-        /// <returns></returns>
-        //public async Task BeepAsync(ushort iterations, ushort length, ushort freq, byte vol)
-        //{
-        //    for (uint i = 0; i < iterations; i++)
-        //    {
-        //        Result = await DoTXRXAsync(
-        //            ByteConverter.GetBytesFrom(BEEP_CMD +
-        //            ByteConverter.GetStringFrom(vol) +
-        //            ByteConverter.GetStringFrom(BitConverter.GetBytes(freq)) +
-        //            ByteConverter.GetStringFrom(BitConverter.GetBytes(length)) +
-        //            ByteConverter.GetStringFrom(BitConverter.GetBytes(length)))
-        //            );
-        //    }
-        //}
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="On"></param>
-        public void GreenLED(bool On)
-        {
-            GreenLEDAsync(On).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="On"></param>
-        /// <returns></returns>
-        public async Task GreenLEDAsync(bool On)
-        {
-            if (On)
-            {
-                await LedOnAsync(Leds.Green);
-            }
-            else
-            {
-                await LedOffAsync(Leds.Green);
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="On"></param>
-        public void RedLED(bool On)
-        {
-            RedLEDAsync(On).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="On"></param>
-        /// <returns></returns>
-        public async Task RedLEDAsync(bool On)
-        {
-            if (On)
-            {
-                await LedOnAsync(Leds.Red);
-            }
-            else
-            {
-                await LedOffAsync(Leds.Red);
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="hf"></param>
-        /// <returns></returns>
-        //public BaseChip GetSingleChip(bool hf)
-        //{
-        //    return GetSingleChipAsync(hf, false).Result;
-        //}
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="hf"></param>
-        /// <returns></returns>
-        //public async Task<BaseChip> GetSingleChipAsync(bool hf)
-        //{
-        //    return await GetSingleChipAsync(hf, false);
-        //}
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="hf"></param>
-        /// <param name="legicOnly"></param>
-        /// <returns></returns>
-        //public BaseChip GetSingleChip(bool hf, bool legicOnly)
-        //{
-        //    return GetSingleChipAsync(hf, legicOnly).Result;
-        //}
 
         /// <summary>
         /// Get a single chip which is currently in the reading range of the device.
@@ -1590,15 +2066,6 @@ namespace Elatec.NET
         /// 
         /// </summary>
         /// <returns></returns>
-        public bool Connect()
-        {
-            return ConnectAsync().GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
         public async Task<bool> ConnectAsync()
         {
             var version = await GetVersionStringAsync();
@@ -1725,22 +2192,17 @@ namespace Elatec.NET
         //    return null; // can never happen
         //}
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="success"></param>
+        /// <returns></returns>
+        /// <exception cref="ReaderException"></exception>
         public async Task<bool> CheckSuccessOrThrowLastError(bool success)
         {
             if (success) { return true; }
             var errorCode = await GetLastErrorAsync();
             throw new ReaderException("Call was not successfull, error " + errorCode, errorCode);
-        }
-
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="CMD"></param>
-        /// <returns></returns>
-        private byte[] DoTXRX(byte[] CMD)
-        {
-            return DoTXRXAsync(CMD).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -1755,7 +2217,7 @@ namespace Elatec.NET
                 using (SerialPort twnPort = new SerialPort())
                 {
                     // Initialize serial port
-                    twnPort.PortName = PortName; //GetTWNPortName(portNumber);
+                    twnPort.PortName = PortName;
                     twnPort.BaudRate = 9600;
                     twnPort.DataBits = 8;
                     twnPort.StopBits = System.IO.Ports.StopBits.One;
@@ -1790,11 +2252,10 @@ namespace Elatec.NET
                                         PortAccessDenied = false;
                                         break;
                                     }
-                                    // Force Open
                                     catch (Exception e2)
                                     {
                                         PortAccessDenied = true;
-                                        LogWriter.CreateLogEntry(e2);
+                                        throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotOpen), null);
                                     };
                                 }  
                             }
@@ -1840,803 +2301,28 @@ namespace Elatec.NET
         /// <param name="e"></param>
         private void TXRXErr(object sender, EventArgs e)
         {
-            Debug.WriteLine(e.ToString());
-            return;
+            throw new ReaderException("Call was not successfull, error " + e.ToString(), null);
         }
-
-        #region Tools for connect TWN4
-
-
-        #endregion
 
         #endregion
 
         #region Public Properties
 
-        public string PortName { get; private set; }
-
-        public byte[] Result
-        {
-            get; set;
-        }
-
-        public byte KeySettings
-        {
-            get; set;
-        }
-
-        public byte KeyType
-        {
-            get; set;
-        }
-
-        public byte NumberOfKeys
-        {
-            get; set;
-        }
+        /// <summary>
+        /// Return the number of Connected Readers
+        /// </summary>
+        public int AvailableReadersCount => DeviceManager.GetAvailableReaders().Count;
 
         public bool IsConnected
         {
-            get; private set;
+            get; internal set;
         }
 
-        #endregion
-
-        #region ClassicCommands
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="key"></param>
-        /// <param name="keyType"></param>
-        /// <param name="sectorNumber"></param>
-        /// <returns></returns>
-        public bool MifareClassicLogin(string key, byte keyType, byte sectorNumber)
+        public string PortName
         {
-            return MifareClassicLoginAsync(key, keyType, sectorNumber).GetAwaiter().GetResult();
+            get; internal set;
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="key">The Key. Format: "FFFFFFFFFFFF"</param>
-        /// <param name="keyType">The KeyType. Keytype: KEY_A = 0, KEY_B = 1</param>
-        /// <param name="sectorNumber"></param>
-        /// <returns>Success = true, false otherwise</returns>
-        public async Task<bool> MifareClassicLoginAsync(string key, byte keyType, byte sectorNumber)
-        {
-            try
-            {
-                Result = await DoTXRXAsync(new byte[] { 0x05, 0x00, 0x20 }); //GetChip
-                if (Result.Length > 2 && Result[1] == 0x01 ? true : false)
-                {
-                    var cmd = ByteConverter.GetBytesFrom(MIFARE_CLASSIC_LOGIN + key + keyType.ToString("X2") + sectorNumber.ToString("X2"));
-                    Result = await DoTXRXAsync(cmd);
-                }
-                else
-                {
-                    return RESULT_FAILED;
-                }
-            }
-            catch
-            {
-                throw new ArgumentException();
-            }
-
-            return Result[1] == 0x01 ? RESULT_SUCCESS : RESULT_FAILED;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="blockNumber"></param>
-        /// <returns></returns>
-        public byte[] MifareClassicReadBlock(byte blockNumber)
-        {
-            return MifareClassicReadBlockAsync(blockNumber).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Read Data from Classic Chip
-        /// </summary>
-        /// <param name="blockNumber">DataBlock Number</param>
-        /// <returns>DATA</returns>
-        public async Task<byte[]> MifareClassicReadBlockAsync(byte blockNumber)
-        {
-            Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_CLASSIC_READBLOCK + blockNumber.ToString("X2")));
-            if(Result.Length > 2)
-            {
-                return ByteConverter.Trim(Result, 2, Result.Length - 2);
-            }
-            else
-            {
-                return new byte[] { 0x00 };
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="blockNumber"></param>
-        /// <returns></returns>
-        public bool MifareClassicWriteBlock(byte[] data, byte blockNumber)
-        {
-            return MifareClassicWriteBlockAsync(data, blockNumber).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="data"></param>
-        /// <param name="blockNumber"></param>
-        /// <returns></returns>
-        public async Task<bool> MifareClassicWriteBlockAsync(byte[] data, byte blockNumber)
-        {
-            if(data.Length == 16)
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_CLASSIC_WRITEBLOCK + blockNumber.ToString("X2") + ByteConverter.GetStringFrom(data)));
-
-                if (Result.Length == 2)
-                {
-                    return Result[1] == 0x01 ? RESULT_SUCCESS : RESULT_FAILED;
-                }
-                else
-                {
-                    return RESULT_FAILED;
-                }
-            }
-
-            else
-            {
-                return RESULT_FAILED;
-            }
-        }
-
-        #endregion
-
-        #region DesFireCommands
-
-        public UInt32[] GetDesfireAppIDs()
-        {
-            return GetDesfireAppIDsAsync().GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Retrieve the Available Application IDs after selecing PICC (App 0), Authentication is needed - depending on the security config
-        /// </summary>
-        /// <returns>a uint32[] of the available appids with 4bytes each, null if no apps are available or on error</returns>
-        public async Task<UInt32[]> GetDesfireAppIDsAsync()
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETAPPIDS + "00" + "1C"));
-
-                UInt32[] appids = new UInt32[1];
-
-                if (Result.Length > 2)
-                {
-                    appids = new UInt32[Result[2]];
-
-                    for (int i = 0; i < Result[2]; i++)
-                    {
-                        appids[i] = 0x00000000;
-
-                        for (int j = 6 + (i * 4); j > 2 + (i * 4); j--)
-                        {
-                            appids[i] = appids[i] << 8;
-                            appids[i] |= (byte)(Result[j]);
-                        }
-                    }
-                    return appids;
-                }
-                else
-                {
-                    return null;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="appID"></param>
-        /// <returns></returns>
-        public bool DesfireSelectApplication(uint appID)
-        {
-            return DesfireSelectApplicationAsync(appID).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Select a desfire Application
-        /// </summary>
-        /// <param name="appID">The Application ID to select</param>
-        /// <returns>true if Application could be selected, false otherwise</returns>
-        public async Task<bool> DesfireSelectApplicationAsync(uint appID)
-        {
-            try
-            {
-                Result = await DoTXRXAsync(new byte[] { 0x05, 0x00, 0x20 }); //GetChip
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_SELECTAPP + "00" + ByteConverter.GetStringFrom(BitConverter.GetBytes(appID))));
-
-                if (Result?.Length == 2)
-                {
-                    return Result[1] == 0x01 ? true : false;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public UInt32? GetDesfireFreeMemory()
-        {
-            return GetDesfireFreeMemoryAsync().GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Get the free Memory of a desfire. 
-        /// </summary>
-        /// <returns>a uint32 of the available memory if supported, null if freemem could not be read out</returns>
-        public async Task<UInt32?> GetDesfireFreeMemoryAsync()
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETFREEMEMORY + "00"));
-
-                if (Result?.Length > 2)
-                {
-                    UInt32 freemem = 0x00000000;
-
-                    for (uint i = 3; i >= 2; i--)
-                    {
-                        freemem = (freemem << 8);
-                        freemem |= (byte)(Result[i]);
-                    }
-                    return freemem;
-                }
-
-                else
-                {
-                    return null;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="key"></param>
-        /// <param name="keyNo"></param>
-        /// <param name="keyType"></param>
-        /// <param name="authMode"></param>
-        /// <returns></returns>
-        public bool DesfireAuthenticate(string key, byte keyNo, byte keyType, byte authMode)
-        {
-            return DesfireAuthenticateAsync(key, keyNo, keyType, authMode).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Authenticate to a previously selected desfire application
-        /// </summary>
-        /// <param name="key">string: a 16 bytes key e.g. 00000000000000000000000000000000</param>
-        /// <param name="keyNo">byte: the keyNo to use</param>
-        /// <param name="keyType">byte: 0 = 3DES, 1 = 3K3DES, 2 = AES</param>
-        /// <param name="authMode">byte: 1 = EV1 Mode, 0 = EV0 Mode</param>
-        /// <returns>true if Authentication was successful, false otherwise</returns>
-        public async Task<bool> DesfireAuthenticateAsync(string key, byte keyNo, byte keyType, byte authMode)
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_AUTH + "00" //CryptoEnv
-                                                               + keyNo.ToString("X2")
-                                                               + "10" // keyLength ?
-                                                               + key
-                                                               + keyType.ToString("X2")
-                                                               + authMode.ToString("X2"))); // EV1-ISO Mode = 1, compatible = 0
-
-                if (Result?.Length == 2)
-                {
-                    return Result[1] == 0x01 ? true : false;
-                }
-
-                else
-                {
-                    return false;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return false;
-            }
-
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="_keySettingsTarget"></param>
-        /// <param name="_keyTypeTargetApplication"></param>
-        /// <param name="_maxNbKeys"></param>
-        /// <param name="_appID"></param>
-        /// <returns></returns>
-        public bool DesfireCreateApplication(DESFireKeySettings _keySettingsTarget, DESFireKeyType _keyTypeTargetApplication, int _maxNbKeys, int _appID)
-        {
-            return DesfireCreateApplicationAsync(_keySettingsTarget, _keyTypeTargetApplication, _maxNbKeys, _appID).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Creates a new Application
-        /// </summary>
-        /// <param name="_keySettingsTarget">byte: KS_CHANGE_KEY_WITH_MK = 0, KS_ALLOW_CHANGE_MK = 1, KS_FREE_LISTING_WITHOUT_MK = 2, KS_FREE_CREATE_DELETE_WITHOUT_MK = 4, KS_CONFIGURATION_CHANGEABLE = 8, KS_DEFAULT = 11, KS_CHANGE_KEY_WITH_TARGETED_KEYNO = 224, KS_CHANGE_KEY_FROZEN = 240</param>
-        /// <param name="_keyTypeTargetApplication">byte: 0 = 3DES, 1 = 3K3DES, 2 = AES</param>
-        /// <param name="_maxNbKeys">int max. number of keys</param>
-        /// <param name="_appID">int application id</param>
-        /// <returns>true if the Operation was successful, false otherwise</returns>
-        public async Task<bool> DesfireCreateApplicationAsync(DESFireKeySettings _keySettingsTarget, DESFireKeyType _keyTypeTargetApplication, int _maxNbKeys, int _appID)
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_CREATEAPP + "00" //CryptoEnv
-                                                                   + ByteConverter.GetStringFrom(ByteConverter.Reverse(ByteConverter.GetBytesFrom(_appID.ToString("X8"))))
-                                                                   + ((byte)_keySettingsTarget).ToString("X2")
-                                                                   + _maxNbKeys.ToString("D2")
-                                                                   + "000000"
-                                                                   + ((int)_keyTypeTargetApplication).ToString("D2")
-                                                                   + "000000"));
-
-                if (Result?.Length == 2)
-                {
-                    return Result[1] == 0x01 ? true : false;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="appID"></param>
-        /// <returns></returns>
-        public bool DesfireDeleteApplication(uint appID)
-        {
-            return DesfireDeleteApplicationAsync(appID).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Select a desfire Application
-        /// </summary>
-        /// <param name="appID">The Application ID to delete</param>
-        /// <returns>true if Application could be deleted, false otherwise</returns>
-        public async Task<bool> DesfireDeleteApplicationAsync(uint appID)
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_DELETEAPP + "00" + ByteConverter.GetStringFrom(BitConverter.GetBytes(appID))));
-
-                if (Result?.Length == 2)
-                {
-                    return Result[1] == 0x01 ? true : false;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public byte[] GetDesfireFileIDs()
-        {
-            return GetDesfireFileIDsAsync().GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Retrieve the Available File IDs after selecing App and Authenticating
-        /// </summary>
-        /// <returns>byte[] array of available file ids. null on error</returns>
-        public async Task<byte[]> GetDesfireFileIDsAsync()
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETFILEIDS + "00" + "FF"));
-
-                var fids = new byte[1];
-
-                if (Result?.Length > 2)
-                {
-                    fids = new byte[Result[2]];
-                    for (var i = 3; i < Result.Length; i++)
-                    {
-                        fids[i - 3] = (byte)Result[i];
-                    }
-                    return fids;
-                }
-                else
-                {
-                    return null;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public bool GetDesFireKeySettings()
-        {
-            return GetDesFireKeySettingsAsync().GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Get the KeySettings (Properties: KeySettings, NumberOfKeys, KeyType) of the selected Application. Authentication is needed - depending on the security config
-        /// </summary>
-        /// <returns>true if the Operation was successful, false otherwise</returns>
-        public async Task<bool> GetDesFireKeySettingsAsync()
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETKEYSETTINGS + "00"));
-
-                if (Result?.Length >= 3 && (Result[1] == 0x01 ? true : false))
-                {
-                    KeySettings = Result[2];
-                    NumberOfKeys = Result[3];
-                    KeyType = Result[7];
-
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="fileNo"></param>
-        /// <returns></returns>
-        public byte[] GetDesFireFileSettings(byte fileNo)
-        {
-            return GetDesFireFileSettingsAsync(fileNo).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Get the filesettings of a fileid
-        /// </summary>
-        /// <param name="fileNo">id of the desired file</param>
-        /// <returns>byte[] array of the file settings. null on error. content: FileType = fileSettings[2]; comSett = fileSettings[3]; accessRights[0] = fileSettings[4]; accessRights[1] = fileSettings[5];</returns>
-        public async Task<byte[]> GetDesFireFileSettingsAsync(byte fileNo)
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_GETFILESETTINGS + "00" + ByteConverter.GetStringFrom(fileNo)));
-
-                if (Result?.Length >= 3 && (Result[1] == 0x01 ? true : false))
-                {
-                    return Result;
-                }
-                else
-                {
-                    return null;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return null;
-            }
-
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="fileNo"></param>
-        /// <param name="fileType"></param>
-        /// <param name="comSet"></param>
-        /// <param name="accessRights"></param>
-        /// <param name="fileSize"></param>
-        /// <returns></returns>
-        public bool DesfireCreateFile(byte fileNo, byte fileType, byte comSet, UInt16 accessRights, UInt32 fileSize)
-        {
-            return DesfireCreateFileAsync(fileNo, fileType, comSet, accessRights, fileSize).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Read out Data on a Desfire
-        /// </summary>
-        /// <param name="fileNo">byte: filenumber: 0x00 - 0x14</param>
-        /// <param name="length">int: filesize to read</param>
-        /// <param name="comSet">byte: 0 = Plain, 1 = CMAC, 2 = Encrypted</param>
-        /// <returns>byte[] of data, null on error</returns>
-        public async Task<bool> DesfireCreateFileAsync(byte fileNo, byte fileType, byte comSet, UInt16 accessRights, UInt32 fileSize)
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_CREATE_STDDATAFILE + "00" //CryptoEnv
-                                                                   + fileNo.ToString("X2")
-                                                                   + fileType.ToString("X2")
-                                                                   + comSet.ToString("X2")
-                                                                   + ByteConverter.GetStringFrom(ByteConverter.GetBytesFrom(accessRights.ToString("X4")))
-                                                                   + ByteConverter.GetStringFrom(ByteConverter.Reverse(ByteConverter.GetBytesFrom(fileSize.ToString("X8"))))
-                                                                   + "000000000000000000000000"));
-
-
-
-                return Result?.Length >= 3 && (Result[1] == 0x01 ? true : false);
-
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return false;
-            }
-
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="fileNo"></param>
-        /// <param name="length"></param>
-        /// <param name="comSet"></param>
-        /// <returns></returns>
-        public byte[] DesfireReadData(byte fileNo, int length, byte comSet)
-        {
-            return DesfireReadDataAsync(fileNo, length, comSet).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Read out Data on a Desfire
-        /// </summary>
-        /// <param name="fileNo">byte: filenumber: 0x00 - 0x14</param>
-        /// <param name="length">int: filesize to read</param>
-        /// <param name="comSet">byte: 0 = Plain, 1 = CMAC, 2 = Encrypted</param>
-        /// <returns>byte[] of data, null on error</returns>
-        public async Task<byte[]> DesfireReadDataAsync(byte fileNo, int length, byte comSet)
-        {
-            try
-            {
-                var data = new byte[length];
-                var iterations = (length / 0xFF) == 0 ? 1 : (length / 0xFF);
-                var dataLengthToRead = length;
-
-                for (var i = 0; i < iterations; i++)
-                {
-                    Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_READDATA + "00" //CryptoEnv
-                                                                   + fileNo.ToString("X2")
-                                                                   + ByteConverter.GetStringFrom(ByteConverter.Reverse(ByteConverter.GetBytesFrom((i*0xFF).ToString("X4"))))
-                                                                   + (dataLengthToRead >= 0xFF ? 0xFF : length).ToString("X2")
-                                                                   + (comSet).ToString("X2")));
-                    
-                    Array.Copy(ByteConverter.Trim(Result, 3, Result[2]),0, data,(i*0xFF), (dataLengthToRead >= 0xFF ? 0xFF : length));
-                }
-                
-
-                if (Result?.Length >= 3 && (Result[1] == 0x01 ? true : false))
-                {
-                    return data;
-                }
-                else
-                {
-                    return null;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return null;
-            }
-
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="keySettings"></param>
-        /// <param name="numberOfKeys"></param>
-        /// <param name="keyType"></param>
-        /// <returns></returns>
-        public bool DesfireChangeKeySettings(byte keySettings, UInt32 numberOfKeys, UInt32 keyType)
-        {
-            return DesfireChangeKeySettingsAsync(keySettings, numberOfKeys, keyType).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="keySettings"></param>
-        /// <param name="numberOfKeys"></param>
-        /// <param name="keyType"></param>
-        /// <returns></returns>
-        public async Task<bool> DesfireChangeKeySettingsAsync(byte keySettings, UInt32 numberOfKeys, UInt32 keyType)
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_CHANGEKEYSETTINGS + "00" 
-                    + keySettings.ToString("X2") 
-                    + numberOfKeys.ToString("X8") 
-                    + keyType.ToString("X8") ));
-
-                return Result?.Length == 2 && (Result[1] == 0x01 ? true : false);
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="oldKey"></param>
-        /// <param name="newKey"></param>
-        /// <param name="keyVersion"></param>
-        /// <param name="accessRights"></param>
-        /// <param name="keyNo"></param>
-        /// <param name="numberOfKeys"></param>
-        /// <param name="keyType"></param>
-        /// <returns></returns>
-        public bool DesfireChangeKey(string oldKey, string newKey, byte keyVersion, byte accessRights, byte keyNo, UInt32 numberOfKeys, UInt32 keyType)
-        {
-            return DesfireChangeKeyAsync(oldKey, newKey, keyVersion, accessRights, keyNo, numberOfKeys, keyType).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Changes a Key
-        /// </summary>
-        /// <param name="oldKey"></param>
-        /// <param name="newKey"></param>
-        /// <param name="keyVersion"></param>
-        /// <param name="accessRights"></param>
-        /// <param name="keyNo"></param>
-        /// <param name="numberOfKeys"></param>
-        /// <param name="keyType">The Type of the new Key</param>
-        /// <returns></returns>
-        public async Task<bool> DesfireChangeKeyAsync(string oldKey, string newKey, byte keyVersion, byte accessRights, byte keyNo, UInt32 numberOfKeys, UInt32 keyType)
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_CHANGEKEY + "00" 
-                    + keyNo.ToString("X2") 
-                    + "10" + oldKey 
-                    + "10" + newKey 
-                    + keyVersion.ToString("X2") 
-                    + accessRights.ToString("X2")
-                    + ByteConverter.GetStringFrom(ByteConverter.Reverse(ByteConverter.GetBytesFrom(numberOfKeys.ToString("X8"))))
-                    + ByteConverter.GetStringFrom(ByteConverter.Reverse(ByteConverter.GetBytesFrom(keyType.ToString("X8"))))));
-
-                return Result?.Length == 2 && (Result[1] == 0x01 ? true : false);
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="fileNo"></param>
-        /// <returns></returns>
-        public bool DesfireDeleteFile(byte fileNo)
-        {
-            return DesfireDeleteFileAsync(fileNo).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Delete a File
-        /// </summary>
-        /// <param name="fileNo">byte: Filenumber to delete</param>
-        /// <returns>true if the Operation was successful, false otherwise</returns>
-        public async Task<bool> DesfireDeleteFileAsync(byte fileNo)
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_DELETEFILE + "00" + fileNo.ToString("X2")));
-
-                if (Result?.Length == 2)
-                {
-                    return Result[1] == 0x01 ? true : false;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public bool DesfireFormatTag()
-        {
-            return DesfireFormatTagAsync().GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Format a Chip
-        /// </summary>
-        /// <returns>true if the Operation was successful, false otherwise</returns>
-        public async Task<bool> DesfireFormatTagAsync()
-        {
-            try
-            {
-                Result = await DoTXRXAsync(ByteConverter.GetBytesFrom(MIFARE_DESFIRE_FORMATTAG + "00" ));
-
-                if (Result?.Length == 2)
-                {
-                    return Result[1] == 0x01 ? true : false;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-            catch (Exception e)
-            {
-                LogWriter.CreateLogEntry(e);
-                return false;
-            }
-        }
         #endregion
 
         protected virtual void Dispose(bool disposing)
@@ -2659,10 +2345,8 @@ namespace Elatec.NET
         public void Dispose()
         {
             GC.SuppressFinalize(this);
-            //GreenLED(false);
             Dispose(true);
         }
-
     }
 
 
