@@ -64,10 +64,6 @@ namespace Elatec.NET
         /// <exception cref="ApplicationException">throw: More than one Byte in Constructor</exception>
         public bool ParseBool()
         {
-            if (Bytes.Count != 1)
-            {
-                throw new ApplicationException("More than one Byte in Constructor");
-            }
             return ParseByte() != 0;
         }
 

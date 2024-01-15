@@ -74,7 +74,7 @@ namespace Elatec.NET.Helpers.ByteArrayHelper
         /// <summary>
         /// Convert byte and byte[] to and from other types
         /// </summary>
-        public static class ByteConverter
+        public static class ByteArrayConverter
         {
             /// <summary>
             /// Reverses an Array of Bytes from Little Endian to Big Endian or Vice Versa

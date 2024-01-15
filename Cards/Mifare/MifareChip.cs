@@ -49,8 +49,5 @@
             ATS = ats;
             VersionL4 = versionL4;
         }
-
-
-        public MifareChip Slave { get; set; }
     }
 }

@@ -39,7 +39,7 @@ namespace Elatec.NET
         private bool _disposed;
 
         private static readonly object syncRoot = new object();
-        private static TWN4ReaderDevice instance;
+        private static List<TWN4ReaderDevice> instance;
 
         #region ELATEC COMMANDS
 
@@ -51,7 +51,7 @@ namespace Elatec.NET
 
         #endregion
 
-        public static TWN4ReaderDevice Instance
+        public static List<TWN4ReaderDevice> Instance
         {
             get
             {
@@ -59,7 +59,7 @@ namespace Elatec.NET
                 {
                     if (instance == null)
                     {
-                        instance = DeviceManager.GetAvailableReaders().FirstOrDefault();
+                        instance = DeviceManager.GetAvailableReaders();
                         return instance;
 
                     }
@@ -76,6 +76,14 @@ namespace Elatec.NET
         /// </summary>
         public TWN4ReaderDevice()
         {
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public TWN4ReaderDevice(string portName)
+        {
+            PortName = portName;
         }
 
         /// <summary>
@@ -128,6 +136,18 @@ namespace Elatec.NET
         {
             var parser = await CallFunctionAsync(new byte[] { API_SYS, 4, /* maxLen */ byte.MaxValue });
             string version = parser.ParseAsciiString();
+            var subVersion = version.Split('/');
+            if (subVersion.Length > 0)
+            {
+                if (subVersion[2].Contains("B"))
+                {
+                    IsTWN4LegicReader = true;
+                }
+                else
+                {
+                    IsTWN4LegicReader = false;
+                }
+            }
             return version;
         }
 
@@ -550,7 +570,7 @@ namespace Elatec.NET
             {
                 get
                 {
-                    return ByteConverter.GetStringFrom(IDBytes);
+                    return ByteArrayConverter.GetStringFrom(IDBytes);
                 }
             }
         }
@@ -642,7 +662,7 @@ namespace Elatec.NET
         public async Task MifareClassic_LoginAsync(string key, byte keyType, byte sectorNumber)
         {
             List<byte> bytes = new List<byte>() { API_MIFARECLASSIC, MIFARE_CLASSIC_LOGIN };
-            bytes.AddRange(ByteConverter.GetBytesFrom(key));
+            bytes.AddRange(ByteArrayConverter.GetBytesFrom(key));
             bytes.AddUInt16(keyType);
             bytes.AddUInt16(sectorNumber);
             await CallFunctionAsync(bytes.ToArray());
@@ -792,6 +812,7 @@ namespace Elatec.NET
         private const int MIFARE_DESFIRE_GETFREEMEMORY = 14;
         private const int MIFARE_DESFIRE_FORMATTAG = 15;
         private const int MIFARE_DESFIRE_CREATE_STDDATAFILE = 16;
+        private const int MIFARE_DESFIRE_GETVERSION = 18;
         private const int MIFARE_DESFIRE_DELETEFILE = 19;
         private const int MIFARE_DESFIRE_CHANGEKEYSETTINGS = 24;
         private const int MIFARE_DESFIRE_CHANGEKEY = 25;
@@ -804,7 +825,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task<UInt32[]> MifareDesfire_GetAppIDsAsync(byte maxAppIDCnt = 28)
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETAPPIDS , CRYPTO_ENV };
+            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETAPPIDS , CRYPTO_ENV , maxAppIDCnt};
 
             var parser = await CallFunctionAsync(bytes.ToArray());
             var success = parser.ParseBool();
@@ -906,7 +927,7 @@ namespace Elatec.NET
         public async Task MifareDesfire_AuthenticateAsync(string key, byte keyNo, byte keyType, byte authMode)
         {
             List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_AUTH, CRYPTO_ENV , keyNo, DESFIRE_KEYLENGTH};
-            bytes.AddRange(ByteConverter.GetBytesFrom(key));
+            bytes.AddRange(ByteArrayConverter.GetBytesFrom(key));
             bytes.Add(keyType);
             bytes.Add(authMode);
 
@@ -1190,7 +1211,31 @@ namespace Elatec.NET
         }
 
         //TODO: SYSFUNC(API_DESFIRE,17, bool DESFire_CreateValueFile(int CryptoEnv, int FileNo, const TDESFireFileSettings* FileSettings))
-        //TODO: SYSFUNC(API_DESFIRE,18, bool DESFire_GetVersion(int CryptoEnv, TDESFireVersion* Version))
+
+        /// <summary>
+        /// Get version of a desfire
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<byte[]> MifareDesfire_GetVersionAsync()
+        {
+            {
+                List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETVERSION, CRYPTO_ENV };
+
+                var parser = await CallFunctionAsync(bytes.ToArray());
+                var success = parser.ParseBool();
+
+                if (success)
+                {
+                    var version = parser.ParseVarByteArray();
+                    return version;
+                }
+                else
+                {
+                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotSupported), null);
+                }
+            }
+        }
 
         /// <summary>
         /// Delete a File
@@ -1257,9 +1302,9 @@ namespace Elatec.NET
         {
             List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_CHANGEKEY, CRYPTO_ENV, keyNo, DESFIRE_KEYLENGTH };
             bytes.Add(DESFIRE_KEYLENGTH);
-            bytes.AddRange(ByteConverter.GetBytesFrom(oldKey));
+            bytes.AddRange(ByteArrayConverter.GetBytesFrom(oldKey));
             bytes.Add(DESFIRE_KEYLENGTH);
-            bytes.AddRange(ByteConverter.GetBytesFrom(newKey));
+            bytes.AddRange(ByteArrayConverter.GetBytesFrom(newKey));
             bytes.Add(keyVersion);
             bytes.AddUInt32(numberOfKeys);
             bytes.AddUInt32((byte)keyType);
@@ -1509,7 +1554,7 @@ namespace Elatec.NET
             foreach (Tone tone in song)
             {
                 ushort onTime, offTime;
-                ushort duration = (ushort)(1000 * 1 / tempo * 60 / (tone.Value / 16));
+                ushort duration = (ushort)(1000 * 1 / tempo * 60 / (16 / tone.Value));
 
                 if (tone.Pitch > 0)
                 {
@@ -1533,13 +1578,18 @@ namespace Elatec.NET
         }
 
         /// <summary>
-        /// Each tone contains a volume, a Pitch <see cref="NotePitch"/> and a velue. It also contains the optional IsStaccato Property which Produces a Tone with a Pulsewidth of 50%.  
-        /// Value is calculated as 1 / tempo * 60 (length of a cadence) * 1 / (ToneValue / 16). 
+        /// Each tone contains a volume, a Pitch <see cref="NotePitch"/> and a velue. Contains the optional IsStaccato Property which Produces a Tone with a Pulsewidth of 50%.  
+        /// Value is calculated as 1 / tempo * 60 (length of a cadence) * 1 / (ToneValue / 16). Defaults to Volume = 60, and Value = 16
         /// Where Value is the Tone Length with a Base 16. So 16 is a whole note, 8 is a half note, 4 is a quarter note, 2 a quaver and 1 a semiquaver.
         /// The dotted Notes are then 12 for dotted half, 6 for dotted quarter and 3 for a dotted quaver
         /// </summary>
         public class Tone
         {
+            public Tone()
+            {
+                Volume = 60;
+                Value = 16;
+            }
             public int Value    {       get; set;   }
             public byte Volume  {       get; set;   }
             public NotePitch Pitch  {   get; set;   }
@@ -1611,75 +1661,57 @@ namespace Elatec.NET
             }
 
             var atqa = await ISO14443A_GetAtqaAsync();
-            if (!atqa.HasValue) 
-                return;
-            currentChip.ATQA = atqa.Value;
-
+            if (atqa.HasValue)
+            {
+                currentChip.ATQA = atqa.Value;
+            }
+            
             var sakResult = await ISO14443A_GetSakAsync();
-            if (!sakResult.HasValue) 
-                return;
+            if (sakResult.HasValue)
+            {
+                currentChip.SAK = sakResult.Value;
+            }
 
-            var SAK = sakResult.Value;
-            currentChip.SAK = SAK;
-
-            byte[] ATS;
+            var atsResult = await ISO14443A_GetAtsAsync();
+            if (atsResult != null)
+            {
+                currentChip.ATS = atsResult;
+            }
 
             // Start MIFARE identification
-            if ((SAK & 0x02) == 0x02)
+            if ((currentChip.SAK & 0x02) == 0x02)
             {
                 currentChip.SubType = MifareChipSubType.Unspecified;
             } // RFU bit set (RFU = Reserved for Future Use)
 
             else
             {
-                if ((SAK & 0x08) == 0x08)
+                if ((currentChip.SAK & 0x08) == 0x08)
                 {
-                    if ((SAK & 0x10) == 0x10)
+                    if ((currentChip.SAK & 0x10) == 0x10)
                     {
-                        if ((SAK & 0x01) == 0x01)
+                        if ((currentChip.SAK & 0x01) == 0x01)
                         {
                             currentChip.SubType = MifareChipSubType.Mifare2K;
                         } // // SAK b1 = 1 ? >> Mifare Classic 2K
                         else
                         {
-                            if ((SAK & 0x20) == 0x20)
+                            if ((currentChip.SAK & 0x20) == 0x20)
                             {
                                 currentChip.SubType = MifareChipSubType.SmartMX_Mifare_4K;
                             } // SAK b6 = 1 ?  >> SmartMX Classic 4K
                             else
                             {
                                 //Get ATS - Switch to L4 ?
-                                var response = await DoTXRXAsync(
-                                    ByteConverter.GetBytesFrom(
-                                        ISO14443_3_TXD +
-                                        "04" +
-                                        ISO_CMD_RATS
-                                    ));
 
-                                if (response != null && response.Length <= 4)
+                                if (currentChip.ATS != null)
                                 {
-                                    response = await DoTXRXAsync(ByteConverter.GetBytesFrom(ISO14443_GET_ATS + "20"));
-                                    ATS = new byte[response.Length - 2];
-                                }
-                                else if (response != null && response.Length >= 5)
-                                {
-                                    ATS = new byte[response.Length - 2];
-                                }
-                                else
-                                {
-                                    ATS = new byte[1] { 0x00 };
-                                }
-
-                                Buffer.BlockCopy(response, 2, ATS, 0, response.Length - 2);
-
-                                if (ATS.Length > 4)
-                                {
-                                    if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x00, 0x35, 0xC7 }) != 0) //MF PlusS 4K in SL1
+                                    if (ByteArrayConverter.SearchBytePattern(currentChip.ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x00, 0x35, 0xC7 }) != 0) //MF PlusS 4K in SL1
                                     {
                                         currentChip.SubType = MifareChipSubType.MifarePlus_SL1_4K;
                                     }
 
-                                    else if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
+                                    else if (ByteArrayConverter.SearchBytePattern(currentChip.ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
                                     {
                                         currentChip.SubType = MifareChipSubType.MifarePlus_SL1_4K;
                                     }
@@ -1696,54 +1728,31 @@ namespace Elatec.NET
                     } // SAK b5 = 1 ?
                     else
                     {
-                        if ((SAK & 0x01) == 0x01)
+                        if ((currentChip.SAK & 0x01) == 0x01)
                         {
                             currentChip.SubType = MifareChipSubType.MifareMini;
                         } // // SAK b1 = 1 ? >> Mifare Mini
                         else
                         {
-                            if ((SAK & 0x20) == 0x20)
+                            if ((currentChip.SAK & 0x20) == 0x20)
                             {
                                 currentChip.SubType = MifareChipSubType.SmartMX_Mifare_1K;
                             } // // SAK b6 = 1 ? >> SmartMX Classic 1K
                             else
                             {
-                                //Get ATS - Switch to L4 ?
-                                var response = await DoTXRXAsync(
-                                    ByteConverter.GetBytesFrom(
-                                        ISO14443_3_TXD +
-                                        "04" +
-                                        ISO_CMD_RATS
-                                    ));
-
-                                if (response != null && response.Length <= 4)
+                                if (currentChip.ATS != null)
                                 {
-                                    response = await DoTXRXAsync(ByteConverter.GetBytesFrom(ISO14443_GET_ATS + "20"));
-                                    ATS = new byte[response.Length - 2];
-                                }
-                                else if (response != null && response.Length >= 5)
-                                {
-                                    ATS = new byte[response.Length - 2];
-                                }
-                                else
-                                {
-                                    ATS = new byte[1] { 0x00 };
-                                }
-                                Buffer.BlockCopy(response, 2, ATS, 0, response.Length - 2);
-
-                                if (ATS.Length > 4)
-                                {
-                                    if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x00, 0x35, 0xC7 }) != 0) //MF PlusS 4K in SL1
+                                    if (ByteArrayConverter.SearchBytePattern(currentChip.ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x00, 0x35, 0xC7 }) != 0) //MF PlusS 4K in SL1
                                     {
                                         currentChip.SubType = MifareChipSubType.MifarePlus_SL1_2K;
                                     }
 
-                                    else if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
+                                    else if (ByteArrayConverter.SearchBytePattern(currentChip.ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
                                     {
                                         currentChip.SubType = MifareChipSubType.MifarePlus_SL1_2K;
                                     }
 
-                                    else if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x21, 0x30, 0x00, 0xF6, 0xD1 }) != 0) //MF PlusSE 1K
+                                    else if (ByteArrayConverter.SearchBytePattern(currentChip.ATS, new byte[] { 0xC1, 0x05, 0x21, 0x30, 0x00, 0xF6, 0xD1 }) != 0) //MF PlusSE 1K
                                     {
                                         currentChip.SubType = MifareChipSubType.MifarePlus_SL0_1K;
                                     }
@@ -1764,9 +1773,9 @@ namespace Elatec.NET
                 } // SAK b4 = 1 ?
                 else
                 {
-                    if ((SAK & 0x10) == 0x10)
+                    if ((currentChip.SAK & 0x10) == 0x10)
                     {
-                        if ((Result[2] & 0x01) == 0x01)
+                        if (true) // (Result[2] & 0x01
                         {
                             currentChip.SubType = MifareChipSubType.MifarePlus_SL2_4K;
                         } // Mifare Plus 4K in SL2
@@ -1777,54 +1786,36 @@ namespace Elatec.NET
                     }
                     else
                     {
-                        if ((SAK & 0x01) == 0x01) // SAK b1 = 1 ?
+                        if ((currentChip.SAK & 0x01) == 0x01) // SAK b1 = 1 ?
                         {
 
                         } // Chip is "TagNPlay"
                         else
                         {
-                            if ((SAK & 0x20) == 0x20)
+                            if ((currentChip.SAK & 0x20) == 0x20)
                             {
-                                //Get ATS - Switch to L4 ?
-                                var response = await DoTXRXAsync(
-                                    ByteConverter.GetBytesFrom(
-                                        ISO14443_3_TXD +
-                                        "04" +
-                                        ISO_CMD_RATS
-                                    ));
-
-                                if (response != null && response.Length <= 4)
+                                //Get Version in L4 ?
+                                byte[] version = null;
+                                try
                                 {
-                                    response = await DoTXRXAsync(ByteConverter.GetBytesFrom(ISO14443_GET_ATS + "20"));
-                                    ATS = new byte[response.Length - 2];
+                                    //for some reason MifareDesfire_GetVersionAsync does not work
+                                    version = await ISO14443_4_TdxAsync(new byte[] { 0x60 });
+                                    currentChip.VersionL4 = version;
                                 }
-                                else if (response != null && response.Length >= 5)
-                                {
-                                    ATS = new byte[response.Length - 2];
-                                }
-                                else
-                                {
-                                    ATS = new byte[1] { 0x00 };
-                                }
+                                catch { }
+                                //var getVersion = await DoTXRXAsync(new byte[] { 0x12, 0x03, 0x01, 0x60, 0x20 }); //issue GetVersion
 
-                                Buffer.BlockCopy(response, 2, ATS, 0, response.Length - 2);
-                                Result = await DoTXRXAsync(new byte[] { 0x05, 0x00, 0x20 }); //GetChip
-                                var getVersion = await DoTXRXAsync(new byte[] { 0x12, 0x03, 0x01, 0x60, 0x20 }); //issue GetVersion
-
-                                if (getVersion?.Length > 4 && getVersion?[3] == 0xAF)
+                                if (version != null && version?[0] == 0xAF)
                                 {
-                                    var L4VERSION = new byte[getVersion.Length - 2];
-                                    Buffer.BlockCopy(getVersion, 2, L4VERSION, 0, getVersion.Length - 2);
-
                                     // Mifare Plus EV1/2 || DesFire || NTAG
-                                    if (getVersion?.Length > 1 && (getVersion?[5] == 0x01)) // DESFIRE
+                                    if (version?[4] == 0x01) // DESFIRE
                                     {
-                                        switch (getVersion?[7] & 0x0F) // Desfire(Sub)Type by lower Nibble of Major Version
+                                        switch (version?[4] & 0x0F) // Desfire(Sub)Type by lower Nibble of Major Version
                                         {
                                             case 0: //DESFIRE EV0
                                                 currentChip.SubType = MifareChipSubType.DESFire;
 
-                                                switch (getVersion?[9])
+                                                switch (version?[6])
                                                 {
                                                     case 0x10:
                                                         currentChip.SubType = MifareChipSubType.DESFire_256; // DESFIRE 256B
@@ -1843,7 +1834,7 @@ namespace Elatec.NET
                                             case 1: // DESFIRE EV1
                                                 currentChip.SubType = MifareChipSubType.DESFireEV1;
 
-                                                switch (getVersion?[9])
+                                                switch (version?[6])
                                                 {
                                                     case 0x10:
                                                         currentChip.SubType = MifareChipSubType.DESFireEV1_256; //DESFIRE 256B
@@ -1865,7 +1856,7 @@ namespace Elatec.NET
                                             case 2: // EV2
                                                 currentChip.SubType = MifareChipSubType.DESFireEV2;
 
-                                                switch (getVersion?[9])
+                                                switch (version?[6])
                                                 {
                                                     case 0x16:
                                                         currentChip.SubType = MifareChipSubType.DESFireEV2_2K; // DESFIRE 2K
@@ -1890,7 +1881,7 @@ namespace Elatec.NET
                                             case 3: // EV3
                                                 currentChip.SubType = MifareChipSubType.DESFireEV3;
 
-                                                switch (getVersion?[9])
+                                                switch (version?[6])
                                                 {
                                                     case 0x16:
                                                         currentChip.SubType = MifareChipSubType.DESFireEV3_2K; // DESFIRE 2K
@@ -1918,14 +1909,14 @@ namespace Elatec.NET
                                                 break;
                                         }
                                     }
-                                    else if (getVersion?.Length > 1 && getVersion?[5] == 0x81) // Emulated e.g. SmartMX
+                                    else if (version?[4] == 0x81) // Emulated e.g. SmartMX
                                     {
-                                        switch (getVersion?[7] & 0x0F) // Desfire(Sub)Type by lower Nibble of Major Version
+                                        switch (version?[4] & 0x0F) // Desfire(Sub)Type by lower Nibble of Major Version
                                         {
                                             case 0: //DESFIRE EV0
                                                 currentChip.SubType = MifareChipSubType.SmartMX_DESFire_Generic;
 
-                                                switch (getVersion?[9])
+                                                switch (version?[6])
                                                 {
                                                     case 0x10:
                                                         currentChip.SubType = MifareChipSubType.SmartMX_DESFire_Generic; // DESFIRE 256B
@@ -1944,7 +1935,7 @@ namespace Elatec.NET
                                             case 1: // DESFIRE EV1
                                                 currentChip.SubType = MifareChipSubType.SmartMX_DESFire_Generic;
 
-                                                switch (getVersion?[9])
+                                                switch (version?[6])
                                                 {
                                                     case 0x10:
                                                         currentChip.SubType = MifareChipSubType.SmartMX_DESFire_Generic; //DESFIRE 256B
@@ -1966,7 +1957,7 @@ namespace Elatec.NET
                                             case 2: // EV2
                                                 currentChip.SubType = MifareChipSubType.SmartMX_DESFire_Generic;
 
-                                                switch (getVersion?[9])
+                                                switch (version?[6])
                                                 {
                                                     case 0x16:
                                                         currentChip.SubType = MifareChipSubType.SmartMX_DESFire_2K; // DESFIRE 2K
@@ -1991,7 +1982,7 @@ namespace Elatec.NET
                                             case 3: // EV3
                                                 currentChip.SubType = MifareChipSubType.SmartMX_DESFire_Generic;
 
-                                                switch (getVersion?[9])
+                                                switch (version?[6])
                                                 {
                                                     case 0x16:
                                                         currentChip.SubType = MifareChipSubType.SmartMX_DESFire_2K; // DESFIRE 2K
@@ -2023,14 +2014,14 @@ namespace Elatec.NET
 
                                 else
                                 {
-                                    if (ATS.Length > 4)
+                                    if (currentChip.ATS != null)
                                     {
-                                        if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x00, 0x35, 0xC7 }) != 0) //MF PlusS 4K in SL1
+                                        if (ByteArrayConverter.SearchBytePattern(currentChip.ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x00, 0x35, 0xC7 }) != 0) //MF PlusS 4K in SL1
                                         {
                                             currentChip.SubType = MifareChipSubType.MifarePlus_SL3_4K;
                                         }
 
-                                        else if (ByteConverter.SearchBytePattern(ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
+                                        else if (ByteArrayConverter.SearchBytePattern(currentChip.ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
                                         {
                                             currentChip.SubType = MifareChipSubType.MifarePlus_SL3_4K;
                                         }
@@ -2319,6 +2310,11 @@ namespace Elatec.NET
         }
 
         public string PortName
+        {
+            get; internal set;
+        }
+
+        public bool IsTWN4LegicReader
         {
             get; internal set;
         }

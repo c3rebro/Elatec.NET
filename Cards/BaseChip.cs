@@ -21,7 +21,7 @@ namespace Elatec.NET.Cards
         {
             get
             {
-                return ByteConverter.GetStringFrom(UID);
+                return ByteArrayConverter.GetStringFrom(UID);
             }
         }
     }
