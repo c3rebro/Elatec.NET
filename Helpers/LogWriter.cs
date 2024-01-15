@@ -10,7 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 
-namespace Elatec.Net.Helpers.Log4CSharp
+namespace Log4CSharp
 {
     /// <summary>
     /// Description of LogWriter.

@@ -1,8 +1,8 @@
 ﻿using Microsoft.Win32;
 
-using Elatec.Net.Helpers.ByteArrayHelper.Extensions;
+using ByteArrayHelper.Extensions;
 
-using Elatec.Net.Helpers.Log4CSharp;
+using Log4CSharp;
 
 using System;
 using System.IO.Ports;
