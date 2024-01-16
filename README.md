@@ -16,6 +16,8 @@ Examples:
 * SelectTag() is only supported by native readers without legic chip, SearchTag() must be used in order to select a Tag.
 * MifareClassic_LoginAsync() needs the sectornumber. Elatec has a special calculating algorithm for the expected sectornumber. Every sector above sec32 (mifare 4k) is 4times bigger that the lower sectors. They expect the sectornumber also to be timed by 4. So the sectornumber 33 is (33 – 32) * 4 + 32 = 36 dec. Sector 38 is (38 – 32) * 4 + 32 = 56 dec and so on.
 
+> Demo Project: [Elatec.Net.SampleApp](https://github.com/c3rebro/Elatec.Net.SampleApp)
+
 usage example:
 
     using Elatec.NET;
