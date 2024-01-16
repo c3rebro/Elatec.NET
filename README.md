@@ -1,11 +1,21 @@
 ﻿# Elatec.NET
  Elatec TWN4 SimpleProtocol Wrapper for .NET
-
+-
 Reader-Shop: https://www.elatec-shop.de/de/
 
 DEV-Kit: https://www.elatec-rfid.com/int/twn4-dev-pack
 
-Hint: Some readers may show unexpected behavior. Especially with Legic Capable "TWN4 Multitec (2) HF LF Legic 45"
+Tested devices:
+* TWN4/B1.06/CCB4.51/PRS1.04/5 (TWN4 Multitec 2 Legic HF LF)
+* TWN4/B1.50/NCB4.51/PRS1.04/5 (TWN4 Multitec Legic 45)
+* TWN4/B1.06/CCF4.51/PRS1.04   (TWN4 Multitec)
+  
+Hint: Some readers may show unexpected behavior. Especially with Legic Capable "TWN4 Multitec (2) HF LF Legic 45". Reason is that some ISO14443 commands are executed by the internal legic chip.
+
+Examples:
+* SelectTag() is only supported by native readers without legic chip, SearchTag() must be used in order to select a Tag.
+* MifareClassic_LoginAsync() needs the sectornumber. Elatec has a special calculating algorithm for the expected sectornumber. Every sector above sec32 (mifare 4k) is 4times bigger that the lower sectors. They expect the sectornumber also to be timed by 4. So the sectornumber 33 is (33 – 32) * 4 + 32 = 36 dec. Sector 38 is (38 – 32) * 4 + 32 = 56 dec and so on.
+
 usage example:
 
     using Elatec.NET;
