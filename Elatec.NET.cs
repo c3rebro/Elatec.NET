@@ -663,8 +663,8 @@ namespace Elatec.NET
         {
             List<byte> bytes = new List<byte>() { API_MIFARECLASSIC, MIFARE_CLASSIC_LOGIN };
             bytes.AddRange(ByteArrayConverter.GetBytesFrom(key));
-            bytes.AddUInt16(keyType);
-            bytes.AddUInt16(sectorNumber);
+            bytes.Add(keyType);
+            bytes.Add(sectorNumber);
             await CallFunctionAsync(bytes.ToArray());
 
             var parser = await CallFunctionAsync(bytes.ToArray());
@@ -1025,19 +1025,29 @@ namespace Elatec.NET
                 fileSettings.accessRights.ReadWriteKeyNo = (byte)((ar & 0x0F00) >> 8);
                 fileSettings.accessRights.ChangeKeyNo = (byte)((ar & 0xF000) >> 12);
 
-                fileSettings.dataFile.fileSize = parser.ParseUInt32();
+                switch (fileSettings.FileType)
+                {
+                    case DESFireFileType.DF_FT_STDDATAFILE:
+                    case DESFireFileType.DF_FT_BACKUPDATAFILE:
+                        fileSettings.dataFile.fileSize = parser.ParseUInt32();
+                        break;
 
-                fileSettings.valueFile.LowerLimit = parser.ParseUInt32();
-                fileSettings.valueFile.UpperLimit = parser.ParseUInt32();
-                fileSettings.valueFile.LimitedCreditValue = parser.ParseUInt32();
+                    case DESFireFileType.DF_FT_VALUEFILE:
+                        fileSettings.valueFile.LowerLimit = parser.ParseUInt32();
+                        fileSettings.valueFile.UpperLimit = parser.ParseUInt32();
+                        fileSettings.valueFile.LimitedCreditValue = parser.ParseUInt32();
+                        fileSettings.valueFile.LimitedCreditEnabled = parser.ParseByte();
+                        fileSettings.valueFile.FreeGetValue = parser.ParseByte();
+                        fileSettings.valueFile.RFU = parser.ParseByte();
+                        break;
 
-                fileSettings.valueFile.LimitedCreditEnabled = parser.ParseByte();
-                fileSettings.valueFile.FreeGetValue = parser.ParseByte();
-                fileSettings.valueFile.RFU = parser.ParseByte();
-
-                fileSettings.recordFile.RecordSize = parser.ParseUInt32();
-                fileSettings.recordFile.MaxNumberOfRecords = parser.ParseUInt32();
-                fileSettings.recordFile.CurrentNumberOfRecords = parser.ParseUInt32();
+                    case DESFireFileType.DF_FT_CYCLICRECORDFILE:
+                    case DESFireFileType.DF_FT_LINEARRECORDFILE:
+                        fileSettings.recordFile.RecordSize = parser.ParseUInt32();
+                        fileSettings.recordFile.MaxNumberOfRecords = parser.ParseUInt32();
+                        fileSettings.recordFile.CurrentNumberOfRecords = parser.ParseUInt32();
+                        break;
+                }
 
                 return fileSettings;
             }
@@ -1508,6 +1518,7 @@ namespace Elatec.NET
 
         /// <summary>
         /// Use this function to select one of the discovered transponders for further operations.
+        /// IMPORTANT: This does not work on Legic capable TWN4 Mutitec Readers. Use SearchTag instead. 
         /// </summary>
         /// <param name="uid">Specify the UID of the transponder to be selected.</param>
         /// <returns>If the operation was successful, the return value is true, otherwise it is false.</returns>
@@ -1614,17 +1625,6 @@ namespace Elatec.NET
                 var chip = await GetTypedChipInstance(tag.ChipType, tag.IDBytes);
                 return chip;
             }
-            else
-            {
-                //GetChip UID if SearchTagAsync failed (SmartMX Elatec workaround)
-                var multiTags = await ISO14443A_SearchMultiTagAsync();
-                if (multiTags.Count > 0)
-                {
-                    var uid = multiTags[0];
-                    var chip = await GetTypedChipInstance(ChipType.MIFARE, uid); // MIFARE is the same as ISO14443A
-                    return chip;
-                }
-            }
 
             return null;
         }
@@ -1651,14 +1651,20 @@ namespace Elatec.NET
         {
             //Start Mifare Identification Process
 
+            /*
+             * IMPORTANT: Selecting a Tag is unsupported when using a TWN4 Multitec HF LF 2 Legic capable Reader.
+             * The elatec support said, this is not documented. Use SearchTag instead.
+             * 
+             * Original Version:
             // If multiple tags were detected, select one.
             bool success = await ISO14443A_SelectTagAsync(currentChip.UID);
             if (!success)
             {
                 var errorNumber = await GetLastErrorAsync();
                 // returned error numbers are not properly documented, like 0x10000001. But the code execution usually continues successfully with GetAtqa.
-                //return;
+                return;
             }
+            */
 
             var atqa = await ISO14443A_GetAtqaAsync();
             if (atqa.HasValue)
@@ -1808,7 +1814,7 @@ namespace Elatec.NET
                                 if (version != null && version?[0] == 0xAF)
                                 {
                                     // Mifare Plus EV1/2 || DesFire || NTAG
-                                    if (version?[4] == 0x01) // DESFIRE
+                                    if (version?[2] == 0x01) // DESFIRE
                                     {
                                         switch (version?[4] & 0x0F) // Desfire(Sub)Type by lower Nibble of Major Version
                                         {
@@ -1909,7 +1915,7 @@ namespace Elatec.NET
                                                 break;
                                         }
                                     }
-                                    else if (version?[4] == 0x81) // Emulated e.g. SmartMX
+                                    if (version?[2] == 0x81) // Emulated e.g. SmartMX
                                     {
                                         switch (version?[4] & 0x0F) // Desfire(Sub)Type by lower Nibble of Major Version
                                         {
@@ -1926,6 +1932,9 @@ namespace Elatec.NET
                                                         break;
                                                     case 0x18:
                                                         currentChip.SubType = MifareChipSubType.SmartMX_DESFire_4K; // 4K
+                                                        break;
+                                                    case 0x1A:
+                                                        currentChip.SubType = MifareChipSubType.SmartMX_DESFire_8K; // 4K
                                                         break;
                                                     default:
                                                         break;

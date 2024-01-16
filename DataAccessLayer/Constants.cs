@@ -348,6 +348,10 @@ namespace Elatec.NET
     /// </summary>
     public class DESFireFileSettings
     {
+        public DESFireFileSettings()
+        {
+            accessRights = new DESFireFileAccessRights();
+        }
         public DESFireFileAccessRights accessRights;
         public DESFireFileType FileType;
         public byte comSett;
