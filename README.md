@@ -5,6 +5,7 @@ Reader-Shop: https://www.elatec-shop.de/de/
 
 DEV-Kit: https://www.elatec-rfid.com/int/twn4-dev-pack
 
+Hint: Some readers may show unexpected behavior. Especially with Legic Capable "TWN4 Multitec (2) HF LF Legic 45"
 usage example:
 
     using Elatec.NET;
@@ -17,7 +18,7 @@ usage example:
     using System.Threading.Tasks;
 
     namespace ElatecNetSampleApp
-    {
+    {  
         internal class Program
         {
             static async Task Main(string[] args)
@@ -52,16 +53,21 @@ usage example:
                                 case MifareChipSubType.DESFireEV1_8K:
                                     if(reader.IsTWN4LegicReader)
                                     {
-                                        // for some reason. if the Reader is a Multitec with LEGIC one. SelectTag is not working properly.
-                                        // Instead, Search Tag must be executed before an Operation. It will Fail otherwise.
+                                        // undocumented in elatec's devkit (as customersupport said): if the reader is a TWN4 Multitec with LEGIC capabilities,
+                                        // SelectTag is not working. Instead, a SearchTag must be used. The SelectTag is then executed internally.
                                         await reader.SearchTagAsync();
-                                        await reader.MifareDesfire_SelectApplicationAsync(0);
                                     }
                                     else
                                     {
                                         await reader.ISO14443A_SelectTagAsync(chip.UID);
-                                        await reader.MifareDesfire_SelectApplicationAsync(0);
                                     }
+
+                                    await reader.MifareDesfire_SelectApplicationAsync(0);
+                                    await reader.MifareDesfire_CreateApplicationAsync(
+                                        DESFireAppAccessRights.KS_DEFAULT,
+                                        DESFireKeyType.DF_KEY_AES,
+                                        1,
+                                        0x3060);
 
                                     var appIDs = await reader.MifareDesfire_GetAppIDsAsync();
 
@@ -72,22 +78,16 @@ usage example:
                                     break;
                             }
 
-
-                            /*
-                            foreach (uint appID in await ReaderDevice.Instance.GetDesfireAppIDsAsync() ?? new uint[] {0x0})
-                            {
-                                Console.WriteLine("Found: AppID {0}\n", appID);
-                            }
-                            */
                             break;
 
                         default:
-                            //Console.WriteLine(chip.CardType.ToString());
+                            Console.WriteLine("Chip Found: {0}", Enum.GetName(typeof(ChipType), chip.ChipType));
                             break;
                     }
                 }  
             }
         }
+
 
         static class MySongs
         {
