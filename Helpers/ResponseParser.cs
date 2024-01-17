@@ -7,10 +7,16 @@ namespace Elatec.NET
     /// <summary>
     /// Call the Constructor with a byte Array to Parse its Content.
     /// </summary>
-    public class ResponseParser(List<byte> bytes)
+    public class ResponseParser
     {
-        private readonly List<byte> Bytes = bytes;
+        private readonly List<byte> Bytes;
         public int ParseIdx = 0;
+
+        public ResponseParser(List<byte> bytes)
+        {
+            Bytes = bytes;
+            BeginParse();
+        }
 
         public void BeginParse()
         {
