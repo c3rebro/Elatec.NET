@@ -2,12 +2,6 @@
 
 namespace Elatec.NET
 {
-    public static class Constants
-    {
-        public const int MAX_WAIT_INSERTION = 200; //timeout for chip response in ms
-        public const string TITLE_SUFFIX = "DEVELOPER PREVIEW"; //turns out special app versions
-    }
-
     /// <summary>
     /// Type of a chip, as returned by the reader.
     /// </summary>

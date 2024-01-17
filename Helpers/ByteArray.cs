@@ -36,7 +36,12 @@ namespace Elatec.NET.Helpers.ByteArrayHelper
             Data = _data;
         }
 
-        public ByteArray Or(byte[] source, bool isLittleEndian = true)
+        public ByteArray Or(byte[] source)
+        {
+            return Or(source, true);
+        }
+
+        public ByteArray Or(byte[] source, bool isLittleEndian)
         {
 
             byte[] localCopy = new byte[Data.Length];
@@ -739,9 +744,15 @@ namespace Elatec.NET.Helpers.ByteArrayHelper
 
                     ulong crc = foo.CalculateCRC("123456789");
                     if (crc != p.CheckValue)
+                    {
                         Console.WriteLine("CRC '{0}': failed sanity check, expected {1:x8}, got {2:x8}", p.Names[0], p.CheckValue, crc);
+
+                    }
                     else
+                    {
                         Console.WriteLine("CRC '{0}': passed", p.Names[0]);
+                    }
+                        
                 }
             }
 
@@ -769,9 +780,9 @@ namespace Elatec.NET.Helpers.ByteArrayHelper
                 }
             }
 
-            private ulong m_CRCMask;
-            private ulong m_CRCHighBitMask;
-            private CRCParameters m_Params;
+            private readonly ulong m_CRCMask;
+            private readonly ulong m_CRCHighBitMask;
+            private readonly CRCParameters m_Params;
             private ulong[] m_CRCTable;
 
             // Construct a new CRC algorithm object
@@ -845,7 +856,9 @@ namespace Elatec.NET.Helpers.ByteArrayHelper
                 ulong crc = m_Params.Init;
 
                 if (m_Params.ReflectIn)
-                    crc = Reflect(crc, m_Params.Width);
+                {
+                    crc = Reflect(crc, m_Params.Width);  
+                }
 
                 if (m_Params.ReflectIn)
                 {
@@ -892,8 +905,15 @@ namespace Elatec.NET.Helpers.ByteArrayHelper
                     {
                         bit = crc & m_CRCHighBitMask;
                         crc <<= 1;
-                        if ((c & j) > 0) bit ^= m_CRCHighBitMask;
-                        if (bit > 0) crc ^= m_Params.Polynom;
+                        if ((c & j) > 0)
+                        {
+                            bit ^= m_CRCHighBitMask;
+                        }
+
+                        if (bit > 0)
+                        {
+                            crc ^= m_Params.Polynom;
+                        }
                     }
                 }
 

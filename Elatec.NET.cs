@@ -41,16 +41,6 @@ namespace Elatec.NET
         private static readonly object syncRoot = new object();
         private static List<TWN4ReaderDevice> instance;
 
-        #region ELATEC COMMANDS
-
-        private const string ISO14443_GET_ATS = "1200";
-        private const string ISO14443_4_TXD = "1203";
-        private const string ISO14443_3_TXD = "1207";
-
-        private const string ISO_CMD_RATS = "E050BCA5FFFF00";
-
-        #endregion
-
         public static List<TWN4ReaderDevice> Instance
         {
             get
@@ -452,7 +442,17 @@ namespace Elatec.NET
         /// </summary>
         /// <param name="leds">Specify the GPIOs that shall be configured for LED operation.</param>
         /// <returns></returns>
-        public async Task LedInitAsync(Leds leds = Leds.All)
+        public async Task LedInitAsync()
+        {
+            await LedInitAsync(Leds.All);
+        }
+
+        /// <summary>
+        /// Use this function to initialize the respective GPIOs to drive LEDs.
+        /// </summary>
+        /// <param name="leds">Specify the GPIOs that shall be configured for LED operation.</param>
+        /// <returns></returns>
+        public async Task LedInitAsync(Leds leds)
         {
             await CallFunctionAsync(new byte[] { API_PERIPH, 16, (byte)leds });
         }
@@ -820,10 +820,19 @@ namespace Elatec.NET
         /// <summary>
         /// Retrieve the Available Application IDs after selecing PICC (App 0), Authentication is needed - depending on the security config
         /// </summary>
+        /// <returns>a uint32[] of the available appids with 4bytes each, null if no apps are available or on error</returns>
+        public async Task<UInt32[]> MifareDesfire_GetAppIDsAsync()
+        {
+            return await MifareDesfire_GetAppIDsAsync(28);
+        }
+
+        /// <summary>
+        /// Retrieve the Available Application IDs after selecing PICC (App 0), Authentication is needed - depending on the security config
+        /// </summary>
         /// <param name="maxAppIDCnt"></param>
         /// <returns>a uint32[] of the available appids with 4bytes each, null if no apps are available or on error</returns>
         /// <exception cref="ReaderException"></exception>
-        public async Task<UInt32[]> MifareDesfire_GetAppIDsAsync(byte maxAppIDCnt = 28)
+        public async Task<UInt32[]> MifareDesfire_GetAppIDsAsync(byte maxAppIDCnt)
         {
             List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETAPPIDS , CRYPTO_ENV , maxAppIDCnt};
 
@@ -1643,6 +1652,9 @@ namespace Elatec.NET
                     await DetectMifareSubType(mifareChip);
                     chip = mifareChip;
                     break;
+                case ChipType.LEGIC:
+                    chip = new BaseChip(chipType, uid);
+                    break;
                 default:
                     chip = new BaseChip(chipType, uid);
                     break;
@@ -1784,7 +1796,7 @@ namespace Elatec.NET
                 {
                     if ((currentChip.SAK & 0x10) == 0x10)
                     {
-                        if (true) // (Result[2] & 0x01
+                        if ((currentChip.SAK & 0x01) == 0x01) // 
                         {
                             currentChip.SubType = MifareChipSubType.MifarePlus_SL2_4K;
                         } // Mifare Plus 4K in SL2
@@ -1811,8 +1823,8 @@ namespace Elatec.NET
                                     version = await ISO14443_4_TdxAsync(new byte[] { 0x60 });
                                     currentChip.VersionL4 = version;
                                 }
+                                //TODO: Check reader behaviour
                                 catch { }
-                                //var getVersion = await DoTXRXAsync(new byte[] { 0x12, 0x03, 0x01, 0x60, 0x20 }); //issue GetVersion
 
                                 if (version != null && version?[0] == 0xAF)
                                 {
@@ -1935,9 +1947,6 @@ namespace Elatec.NET
                                                         break;
                                                     case 0x18:
                                                         currentChip.SubType = MifareChipSubType.SmartMX_DESFire_4K; // 4K
-                                                        break;
-                                                    case 0x1A:
-                                                        currentChip.SubType = MifareChipSubType.SmartMX_DESFire_8K; // 4K
                                                         break;
                                                     default:
                                                         break;
