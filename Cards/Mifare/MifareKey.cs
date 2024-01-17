@@ -47,24 +47,35 @@ namespace Elatec.NET.Cards.Mifare
     /// <summary>
     /// 
     /// </summary>
-    public struct AccessBits
+    public class AccessBits
     {
-        public short c1;
-        public short c2;
-        public short c3;
+        private ushort c1;
+        private ushort c2;
+        private ushort c3;
+
+        public ushort C1 { get => c1; set => c1 = value; }
+        public ushort C2 { get => c2; set => c2 = value; }
+        public ushort C3 { get => c3; set => c3 = value; }
     }
 
     /// <summary>
     /// 
     /// </summary>
-    public struct SectorAccessBits
+    public class SectorAccessBits
     {
-        public int Cx;
+        private int cx;
 
-        public AccessBits d_data_block0_access_bits;
-        public AccessBits d_data_block1_access_bits;
-        public AccessBits d_data_block2_access_bits;
-        public AccessBits d_sector_trailer_access_bits;
+        private AccessBits d_data_block0_access_bits;
+        private AccessBits d_data_block1_access_bits;
+        private AccessBits d_data_block2_access_bits;
+        private AccessBits d_sector_trailer_access_bits;
+
+        public int Cx { get => cx; set => cx = value; }
+
+        public AccessBits SAB_data_block0_access_bits { get => d_data_block0_access_bits; set => d_data_block0_access_bits = value; }
+        public AccessBits SAB_data_block1_access_bits { get => d_data_block1_access_bits; set => d_data_block1_access_bits = value; }
+        public AccessBits SAB_data_block2_access_bits { get => d_data_block2_access_bits; set => d_data_block2_access_bits = value; }
+        public AccessBits SAB_sector_trailer_access_bits { get => d_sector_trailer_access_bits; set => d_sector_trailer_access_bits = value; }
     }
 
     #endregion
