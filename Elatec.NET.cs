@@ -1138,11 +1138,7 @@ namespace Elatec.NET
                 var parser = await CallFunctionAsync(bytes.ToArray());
                 success = parser.ParseBool();
 
-                if (success)
-                {
-                    continue;
-                }
-                else
+                if (!success)
                 {
                     throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
                 }
@@ -1250,8 +1246,7 @@ namespace Elatec.NET
 
                 if (success)
                 {
-                    var version = parser.ParseVarByteArray();
-                    return version;
+                    return parser.ParseVarByteArray();
                 }
                 else
                 {
@@ -2190,7 +2185,7 @@ namespace Elatec.NET
             return parser;
         }
 
-        // TODO This is example code for error handling
+        // TODO: This is example code for error handling
         //public async Task<byte[]> MifareClassicReadBlock2Async(byte blockNumber)
         //{
         //    var parser = await CallFunctionAsync(new byte[] { API_MIFARECLASSIC, 1, blockNumber });
