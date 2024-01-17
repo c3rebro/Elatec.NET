@@ -1,4 +1,4 @@
-﻿# Elatec.NET
+﻿# Elatec.NET [![Codacy Badge](https://app.codacy.com/project/badge/Grade/f219c0fa9a484f4580085734c97cba85)](https://app.codacy.com/gh/c3rebro/Elatec.NET/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
  Elatec TWN4 SimpleProtocol Wrapper for .NET
 -
 Reader-Shop: https://www.elatec-shop.de/de/
