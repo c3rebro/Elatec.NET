@@ -95,7 +95,7 @@ namespace Elatec.NET
 
         #region API_SYS / System Functions
 
-        public const int API_SYS = 0;
+        public static readonly byte API_SYS = 0;
 
         // Not supported: SYSFUNC(API_SYS, 0, bool SysCall(TEnvSysCall* Env))
 
@@ -183,7 +183,7 @@ namespace Elatec.NET
         /// <returns>See TWN4 API Reference.</returns>
         public async Task<byte> SleepAsync(uint ticks, uint flags)
         {
-            List<byte> bytes = new List<byte>() { API_RF, 7 };
+            List<byte> bytes = new List<byte> { API_RF, 7 };
             bytes.AddUInt32(ticks);
             bytes.AddUInt32(flags);
             var parser = await CallFunctionAsync(bytes.ToArray());
@@ -212,7 +212,7 @@ namespace Elatec.NET
         /// <remarks>SYSFUNC(API_SYS, 9, bool SetParameters(const byte* TLV,int ByteCount))</remarks>
         public async Task<bool> SetParametersAsync(byte[] TLV)
         {
-            List<byte> bytes = new List<byte>() { API_SYS, 9 };
+            List<byte> bytes = new List<byte> { API_SYS, 9 };
             bytes.Add((byte)(TLV.Length + 1));
             bytes.AddRange(TLV);
             bytes.Add(0); // TLV_END
@@ -306,7 +306,7 @@ namespace Elatec.NET
 
         #region API_PERIPH / Periphery Functions
 
-        public const int API_PERIPH = 4;
+        public static readonly byte API_PERIPH = 4;
 
         /// <summary>
         ///     Use this function to configure one or several GPIOs as output. Each output can be configured to have an
@@ -381,7 +381,7 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task GpioBlinkBitsAsync(Gpios bits, ushort timeHi, ushort timeLo)
         {
-            List<byte> bytes = new List<byte>() { API_PERIPH, 5 };
+            List<byte> bytes = new List<byte> { API_PERIPH, 5 };
             bytes.Add((byte)bits);
             bytes.AddUInt16(timeHi);
             bytes.AddUInt16(timeLo);
@@ -412,7 +412,7 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task BeepAsync(byte volume, ushort frequency, ushort onTime, ushort offTime)
         {
-            List<byte> bytes = new List<byte>() { API_PERIPH, 7 };
+            List<byte> bytes = new List<byte> { API_PERIPH, 7 };
             bytes.Add(volume);
             bytes.AddUInt16(frequency);
             bytes.AddUInt16(onTime);
@@ -496,7 +496,7 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task LedBlinkAsync(Leds leds, ushort onTime, ushort offTime)
         {
-            List<byte> bytes = new List<byte>() { API_PERIPH, 20 };
+            List<byte> bytes = new List<byte> { API_PERIPH, 20 };
             bytes.Add((byte)leds);
             bytes.AddUInt16(onTime);
             bytes.AddUInt16(offTime);
@@ -513,7 +513,7 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task BeepOnAsync(byte volume, ushort frequency)
         {
-            List<byte> bytes = new List<byte>() { API_PERIPH, 22 };
+            List<byte> bytes = new List<byte> { API_PERIPH, 22 };
             bytes.Add(volume);
             bytes.AddUInt16(frequency);
             await CallFunctionAsync(bytes.ToArray());
@@ -534,7 +534,7 @@ namespace Elatec.NET
 
         #region API_RF
 
-        public const int API_RF = 5;
+        public static readonly byte API_RF = 5;
 
         /// <summary>
         ///     Use this function to search a transponder in the reading range of TWN4. TWN4 is searching for all types
@@ -593,7 +593,7 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task SetTagTypesAsync(LFTagTypes lfTagTypes, HFTagTypes hfTagTypes)
         {
-            List<byte> bytes = new List<byte>() { API_RF, 2 };
+            List<byte> bytes = new List<byte> { API_RF, 2 };
             bytes.AddUInt32((uint)lfTagTypes);
             bytes.AddUInt32((uint)hfTagTypes);
             await CallFunctionAsync(bytes.ToArray());
@@ -645,11 +645,11 @@ namespace Elatec.NET
 
         #region API_MIFARECLASSIC / Mifare Classic Functions
 
-        public const int API_MIFARECLASSIC = 11;
+        public static readonly byte API_MIFARECLASSIC = 11;
 
-        public const int MIFARE_CLASSIC_LOGIN = 0;
-        public const int MIFARE_CLASSIC_READBLOCK = 1;
-        public const int MIFARE_CLASSIC_WRITEBLOCK = 2;
+        public static readonly byte MIFARE_CLASSIC_LOGIN = 0;
+        public static readonly byte MIFARE_CLASSIC_READBLOCK = 1;
+        public static readonly byte MIFARE_CLASSIC_WRITEBLOCK = 2;
 
         /// <summary>
         /// Login to a Mifare Classic single Sector.
@@ -661,7 +661,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task MifareClassic_LoginAsync(string key, byte keyType, byte sectorNumber)
         {
-            List<byte> bytes = new List<byte>() { API_MIFARECLASSIC, MIFARE_CLASSIC_LOGIN };
+            List<byte> bytes = new List<byte> { API_MIFARECLASSIC, MIFARE_CLASSIC_LOGIN };
             bytes.AddRange(ByteArrayConverter.GetBytesFrom(key));
             bytes.Add(keyType);
             bytes.Add(sectorNumber);
@@ -684,7 +684,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task<byte[]> MifareClassic_ReadBlockAsync(byte blockNumber)
         {
-            List<byte> bytes = new List<byte>() { API_MIFARECLASSIC, MIFARE_CLASSIC_READBLOCK };
+            List<byte> bytes = new List<byte> { API_MIFARECLASSIC, MIFARE_CLASSIC_READBLOCK };
             bytes.Add(blockNumber);
 
             var parser = await CallFunctionAsync(bytes.ToArray());
@@ -709,7 +709,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task MifareClassic_WriteBlockAsync(byte[] data, byte blockNumber)
         {
-            List<byte> bytes = new List<byte>() { API_MIFARECLASSIC, MIFARE_CLASSIC_WRITEBLOCK, blockNumber };
+            List<byte> bytes = new List<byte> { API_MIFARECLASSIC, MIFARE_CLASSIC_WRITEBLOCK, blockNumber };
             bytes.AddRange(data);
 
             var parser = await CallFunctionAsync(bytes.ToArray());
@@ -732,7 +732,7 @@ namespace Elatec.NET
 
         #region API_MIFAREULTRALIGHT / Mifare Ultralight Functions
 
-        public const int API_MIFAREULTRALIGHT = 12;
+        public static readonly byte API_MIFAREULTRALIGHT = 12;
 
         // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 0, bool MifareUltralight_ReadPage(int Page, byte* Data))
 
@@ -793,29 +793,29 @@ namespace Elatec.NET
 
         #region API_MIFAREDESFIRE / Mifare Desfire Functions
 
-        public const int API_MIFAREDESFIRE = 15;
+        public static readonly byte API_MIFAREDESFIRE = 15;
 
-        private const byte CRYPTO_ENV = 0;
-        private const byte DESFIRE_KEYLENGTH = 0x10;
-        private const byte DESFIRE_MAX_FILEIDS = 0xFF;
+        private static readonly byte CRYPTO_ENV = 0;
+        private static readonly byte DESFIRE_KEYLENGTH = 0x10;
+        private static readonly byte DESFIRE_MAX_FILEIDS = 0xFF;
 
-        private const int MIFARE_DESFIRE_GETAPPIDS = 0;
-        private const int MIFARE_DESFIRE_CREATEAPP = 1;
-        private const int MIFARE_DESFIRE_DELETEAPP = 2;
-        private const int MIFARE_DESFIRE_SELECTAPP = 3;
-        private const int MIFARE_DESFIRE_AUTH = 4;
-        private const int MIFARE_DESFIRE_GETKEYSETTINGS = 5;
-        private const int MIFARE_DESFIRE_GETFILEIDS = 6;
-        private const int MIFARE_DESFIRE_GETFILESETTINGS = 7;
-        private const int MIFARE_DESFIRE_READDATA = 8;
-        private const int MIFARE_DESFIRE_WRITEDATA = 9;
-        private const int MIFARE_DESFIRE_GETFREEMEMORY = 14;
-        private const int MIFARE_DESFIRE_FORMATTAG = 15;
-        private const int MIFARE_DESFIRE_CREATE_STDDATAFILE = 16;
-        private const int MIFARE_DESFIRE_GETVERSION = 18;
-        private const int MIFARE_DESFIRE_DELETEFILE = 19;
-        private const int MIFARE_DESFIRE_CHANGEKEYSETTINGS = 24;
-        private const int MIFARE_DESFIRE_CHANGEKEY = 25;
+        private static readonly byte MIFARE_DESFIRE_GETAPPIDS = 0;
+        private static readonly byte MIFARE_DESFIRE_CREATEAPP = 1;
+        private static readonly byte MIFARE_DESFIRE_DELETEAPP = 2;
+        private static readonly byte MIFARE_DESFIRE_SELECTAPP = 3;
+        private static readonly byte MIFARE_DESFIRE_AUTH = 4;
+        private static readonly byte MIFARE_DESFIRE_GETKEYSETTINGS = 5;
+        private static readonly byte MIFARE_DESFIRE_GETFILEIDS = 6;
+        private static readonly byte MIFARE_DESFIRE_GETFILESETTINGS = 7;
+        private static readonly byte MIFARE_DESFIRE_READDATA = 8;
+        private static readonly byte MIFARE_DESFIRE_WRITEDATA = 9;
+        private static readonly byte MIFARE_DESFIRE_GETFREEMEMORY = 14;
+        private static readonly byte MIFARE_DESFIRE_FORMATTAG = 15;
+        private static readonly byte MIFARE_DESFIRE_CREATE_STDDATAFILE = 16;
+        private static readonly byte MIFARE_DESFIRE_GETVERSION = 18;
+        private static readonly byte MIFARE_DESFIRE_DELETEFILE = 19;
+        private static readonly byte MIFARE_DESFIRE_CHANGEKEYSETTINGS = 24;
+        private static readonly byte MIFARE_DESFIRE_CHANGEKEY = 25;
 
         /// <summary>
         /// Retrieve the Available Application IDs after selecing PICC (App 0), Authentication is needed - depending on the security config
@@ -825,7 +825,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task<UInt32[]> MifareDesfire_GetAppIDsAsync(byte maxAppIDCnt = 28)
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETAPPIDS , CRYPTO_ENV , maxAppIDCnt};
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETAPPIDS , CRYPTO_ENV , maxAppIDCnt};
 
             var parser = await CallFunctionAsync(bytes.ToArray());
             var success = parser.ParseBool();
@@ -860,7 +860,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task MifareDesfire_CreateApplicationAsync(DESFireAppAccessRights keySettingsTarget, DESFireKeyType keyTypeTargetApplication, int maxNbKeys, int appID)
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_CREATEAPP, CRYPTO_ENV };
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CREATEAPP, CRYPTO_ENV };
             bytes.AddUInt32((UInt32)appID);
             bytes.Add((byte)keySettingsTarget);
             bytes.AddUInt32((UInt32)maxNbKeys);
@@ -883,7 +883,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task MifareDesfire_DeleteApplicationAsync(uint appID)
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_DELETEAPP, CRYPTO_ENV };
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_DELETEAPP, CRYPTO_ENV };
             bytes.AddUInt32((UInt32)appID);
 
             var parser = await CallFunctionAsync(bytes.ToArray());
@@ -903,7 +903,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task MifareDesfire_SelectApplicationAsync(uint appID)
         {          
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_SELECTAPP, CRYPTO_ENV };
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_SELECTAPP, CRYPTO_ENV };
             bytes.AddUInt32((UInt32)appID);
 
             var parser = await CallFunctionAsync(bytes.ToArray());
@@ -926,7 +926,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task MifareDesfire_AuthenticateAsync(string key, byte keyNo, byte keyType, byte authMode)
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_AUTH, CRYPTO_ENV , keyNo, DESFIRE_KEYLENGTH};
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_AUTH, CRYPTO_ENV , keyNo, DESFIRE_KEYLENGTH};
             bytes.AddRange(ByteArrayConverter.GetBytesFrom(key));
             bytes.Add(keyType);
             bytes.Add(authMode);
@@ -947,7 +947,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task<DESFireKeySettings> MifareDesfire_GetKeySettingsAsync()
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETKEYSETTINGS, CRYPTO_ENV};
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETKEYSETTINGS, CRYPTO_ENV};
 
             var parser = await CallFunctionAsync(bytes.ToArray());
             var success = parser.ParseBool();
@@ -975,7 +975,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task<byte[]> MifareDesfire_GetFileIDsAsync()
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETFILEIDS, CRYPTO_ENV , DESFIRE_MAX_FILEIDS};
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETFILEIDS, CRYPTO_ENV , DESFIRE_MAX_FILEIDS};
 
             var parser = await CallFunctionAsync(bytes.ToArray());
             var success = parser.ParseBool();
@@ -1006,7 +1006,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task<DESFireFileSettings> MifareDesfire_GetFileSettingsAsync(byte fileNo)
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETFILESETTINGS, CRYPTO_ENV, fileNo };
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETFILESETTINGS, CRYPTO_ENV, fileNo };
 
             var parser = await CallFunctionAsync(bytes.ToArray());
             var success = parser.ParseBool();
@@ -1016,7 +1016,7 @@ namespace Elatec.NET
                 var fileSettings = new DESFireFileSettings();
 
                 fileSettings.FileType = (DESFireFileType)parser.ParseByte();
-                fileSettings.comSett = parser.ParseByte();
+                fileSettings.ComSett = parser.ParseByte();
 
                 var ar = parser.ParseUInt16();
 
@@ -1029,23 +1029,27 @@ namespace Elatec.NET
                 {
                     case DESFireFileType.DF_FT_STDDATAFILE:
                     case DESFireFileType.DF_FT_BACKUPDATAFILE:
-                        fileSettings.dataFile.fileSize = parser.ParseUInt32();
+                        fileSettings.DataFileSetting.FileSize = parser.ParseUInt32();
                         break;
 
                     case DESFireFileType.DF_FT_VALUEFILE:
-                        fileSettings.valueFile.LowerLimit = parser.ParseUInt32();
-                        fileSettings.valueFile.UpperLimit = parser.ParseUInt32();
-                        fileSettings.valueFile.LimitedCreditValue = parser.ParseUInt32();
-                        fileSettings.valueFile.LimitedCreditEnabled = parser.ParseByte();
-                        fileSettings.valueFile.FreeGetValue = parser.ParseByte();
-                        fileSettings.valueFile.RFU = parser.ParseByte();
+                        fileSettings.ValueFileSetting.LowerLimit = parser.ParseUInt32();
+                        fileSettings.ValueFileSetting.UpperLimit = parser.ParseUInt32();
+                        fileSettings.ValueFileSetting.LimitedCreditValue = parser.ParseUInt32();
+                        fileSettings.ValueFileSetting.LimitedCreditEnabled = parser.ParseByte();
+                        fileSettings.ValueFileSetting.FreeGetValue = parser.ParseByte();
+                        fileSettings.ValueFileSetting.RFU = parser.ParseByte();
                         break;
 
                     case DESFireFileType.DF_FT_CYCLICRECORDFILE:
                     case DESFireFileType.DF_FT_LINEARRECORDFILE:
-                        fileSettings.recordFile.RecordSize = parser.ParseUInt32();
-                        fileSettings.recordFile.MaxNumberOfRecords = parser.ParseUInt32();
-                        fileSettings.recordFile.CurrentNumberOfRecords = parser.ParseUInt32();
+                        fileSettings.RecordFileSetting.RecordSize = parser.ParseUInt32();
+                        fileSettings.RecordFileSetting.MaxNumberOfRecords = parser.ParseUInt32();
+                        fileSettings.RecordFileSetting.CurrentNumberOfRecords = parser.ParseUInt32();
+                        break;
+
+                    default:
+
                         break;
                 }
 
@@ -1073,7 +1077,7 @@ namespace Elatec.NET
 
             for (var i = 0; i < iterations; i++)
             {
-                List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_READDATA, CRYPTO_ENV, fileNo };
+                List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_READDATA, CRYPTO_ENV, fileNo };
 
                 bytes.AddUInt16((UInt16)(i * 0xFF));
                 bytes.Add((byte)(dataLengthToRead >= 0xFF ? 0xFF : length));
@@ -1111,7 +1115,7 @@ namespace Elatec.NET
 
             for (var i = 0; i < iterations; i++)
             {
-                List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_WRITEDATA, CRYPTO_ENV, fileNo };
+                List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_WRITEDATA, CRYPTO_ENV, fileNo };
 
                 lengthToWrite = lengthToWrite >= 0xFF ? 0xFF : lengthToWrite; // more data?
 
@@ -1153,7 +1157,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task<UInt16> MifareDesfire_GetFreeMemoryAsync()
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETFREEMEMORY, CRYPTO_ENV };
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETFREEMEMORY, CRYPTO_ENV };
 
             var parser = await CallFunctionAsync(bytes.ToArray());
             var success = parser.ParseBool();
@@ -1175,7 +1179,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task MifareDesfire_FormatTagAsync()
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_FORMATTAG, CRYPTO_ENV };
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_FORMATTAG, CRYPTO_ENV };
 
             var parser = await CallFunctionAsync(bytes.ToArray());
             var success = parser.ParseBool();
@@ -1198,7 +1202,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task MifareDesfire_CreateStdDataFileAsync(byte fileNo, DESFireFileType fileType, EncryptionMode mode, DESFireFileAccessRights accessRights, UInt32 fileSize)
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_CREATE_STDDATAFILE, CRYPTO_ENV, fileNo, (byte)fileType, (byte)mode };
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CREATE_STDDATAFILE, CRYPTO_ENV, fileNo, (byte)fileType, (byte)mode };
 
             UInt16 fileAccessRights = 0;
 
@@ -1230,7 +1234,7 @@ namespace Elatec.NET
         public async Task<byte[]> MifareDesfire_GetVersionAsync()
         {
             {
-                List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETVERSION, CRYPTO_ENV };
+                List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETVERSION, CRYPTO_ENV };
 
                 var parser = await CallFunctionAsync(bytes.ToArray());
                 var success = parser.ParseBool();
@@ -1256,7 +1260,7 @@ namespace Elatec.NET
         public async Task MifareDesfire_DeleteFileAsync(byte fileNo)
         {
             {
-                List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_DELETEFILE, CRYPTO_ENV, fileNo };
+                List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_DELETEFILE, CRYPTO_ENV, fileNo };
 
                 var parser = await CallFunctionAsync(bytes.ToArray());
                 var success = parser.ParseBool();
@@ -1282,7 +1286,7 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task MifareDesfire_ChangeKeySettingsAsync(DESFireAppAccessRights keySettings, UInt32 numberOfKeys, DESFireKeyType keyType)
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_CHANGEKEYSETTINGS, CRYPTO_ENV};
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CHANGEKEYSETTINGS, CRYPTO_ENV};
 
             bytes.Add((byte)keySettings);
             bytes.AddUInt32(numberOfKeys);
@@ -1310,7 +1314,7 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task MifareDesfire_ChangeKeyAsync(string oldKey, string newKey, byte keyVersion, byte accessRights, byte keyNo, UInt32 numberOfKeys, DESFireKeyType keyType)
         {
-            List<byte> bytes = new List<byte>() { API_MIFAREDESFIRE, MIFARE_DESFIRE_CHANGEKEY, CRYPTO_ENV, keyNo, DESFIRE_KEYLENGTH };
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CHANGEKEY, CRYPTO_ENV, keyNo, DESFIRE_KEYLENGTH };
             bytes.Add(DESFIRE_KEYLENGTH);
             bytes.AddRange(ByteArrayConverter.GetBytesFrom(oldKey));
             bytes.Add(DESFIRE_KEYLENGTH);
@@ -1342,7 +1346,7 @@ namespace Elatec.NET
 
         #region API_ISO14443 / ISO14443 Transparent Transponder Access Functions
 
-        public const int API_ISO14443 = 18;
+        public static readonly byte API_ISO14443 = 18;
 
         /// <summary>
         /// This function delivers the ATS (Answer To Select) of a ISO14443A layer 4 transponder.
@@ -1399,7 +1403,7 @@ namespace Elatec.NET
         /// <returns>The response of the transponder.</returns>
         public async Task<byte[]> ISO14443_4_TdxAsync(byte[] TX)
         {
-            List<byte> bytes = new List<byte>() { API_ISO14443, 3 };
+            List<byte> bytes = new List<byte> { API_ISO14443, 3 };
             bytes.Add((byte)TX.Length);
             bytes.AddRange(TX);
             bytes.Add(byte.MaxValue); // MaxRXByteCnt
@@ -1475,7 +1479,7 @@ namespace Elatec.NET
         /// <returns>The response of the transponder.</returns>
         public async Task<byte[]> ISO14443_3_TdxAsync(byte[] TX, ushort timeout)
         {
-            List<byte> bytes = new List<byte>() { API_ISO14443, 7 };
+            List<byte> bytes = new List<byte> { API_ISO14443, 7 };
             bytes.Add((byte)TX.Length);
             bytes.AddRange(TX);
             bytes.Add(byte.MaxValue); // MaxRXByteCnt
@@ -1524,7 +1528,7 @@ namespace Elatec.NET
         /// <returns>If the operation was successful, the return value is true, otherwise it is false.</returns>
         public async Task<bool> ISO14443A_SelectTagAsync(byte[] uid)
         {
-            List<byte> bytes = new List<byte>() { API_ISO14443, 9 };
+            List<byte> bytes = new List<byte> { API_ISO14443, 9 };
             bytes.Add((byte)uid.Length);
             bytes.AddRange(uid);
 
@@ -1728,7 +1732,6 @@ namespace Elatec.NET
                                 {
                                     currentChip.SubType = MifareChipSubType.Mifare4K;
                                 } //Error on ATS = Mifare Classic 4K
-                                //break;
                             }
                         }
                     } // SAK b5 = 1 ?
@@ -2109,7 +2112,6 @@ namespace Elatec.NET
                 // convert byte to characters
                 buffer += PRSStream[i].ToString("X2");
             }
-            // return buffer
             return buffer;
         }// End of GetPRSfromByteArray
         #endregion
@@ -2265,7 +2267,7 @@ namespace Elatec.NET
 
                     IsConnected = twnPort.IsOpen;
 
-                    if (IsConnected) // if (CMD?[0] != 0 && IsConnected)
+                    if (IsConnected)
                     {
                         // Discard com port inbuffer
                         twnPort.DiscardInBuffer();

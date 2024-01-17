@@ -6,9 +6,9 @@ namespace Elatec.NET
     public class DeviceManager
     {
 
-        public const string VendorIdElatec = "09D8";
-        public const string ProductIdTWN4MultiTech2 = "0420";
-        public const string ServiceUsbSerial = "usbser";
+        public static readonly string VendorIdElatec = "09D8";
+        public static readonly string ProductIdTWN4MultiTech2 = "0420";
+        public static readonly string ServiceUsbSerial = "usbser";
 
         public static List<TWN4ReaderDevice> GetAvailableReaders()
         {

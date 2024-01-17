@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFrameworks>net48;net8.0</TargetFrameworks>
-    <Copyright>Copyright © SimonsVoss 2024</Copyright>
-    <Company>SimonsVoss</Company>
+    <Copyright></Copyright>
+    <Company>MessgeraetetchnikHansen</Company>
 
 	<GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
 	<GenerateAssemblyConfigurationAttribute>false</GenerateAssemblyConfigurationAttribute>
@@ -14,6 +14,19 @@
 	<GenerateAssemblyVersionAttribute>false</GenerateAssemblyVersionAttribute>
 	<GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
 	<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+	<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+	<Title>Elatec.NET</Title>
+	<Description>A simple TWN4 Multitec Protocol Wrapper for .NET</Description>
+	<PackageProjectUrl>https://github.com/c3rebro/Elatec.NET</PackageProjectUrl>
+	<PackageReadmeFile>README.md</PackageReadmeFile>
+	<RepositoryUrl>$(Projekt-URL)</RepositoryUrl>
+	<PackageTags>rfid; elatec; twn4</PackageTags>
+	<PackageReleaseNotes>v0.2 take legic capable reader "specialties" into account. See Readme.MD for further details</PackageReleaseNotes>
+	<AssemblyVersion>0.2</AssemblyVersion>
+	<FileVersion>$(AssemblyVersion)</FileVersion>
+	<PackageLicenseFile>LICENSE</PackageLicenseFile>
+  <IncludeContentInPack>true</IncludeContentInPack>
+  <Version>$(AssemblyVersion)</Version>
   </PropertyGroup>
 
   <!-- Conditionally obtain references for the .NET Framework 4.8 target -->
@@ -24,6 +37,22 @@
   <!-- Conditionally obtain references for the .NET 8.0 target -->
   <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
     <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="LICENSE" />
+    <None Remove="README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

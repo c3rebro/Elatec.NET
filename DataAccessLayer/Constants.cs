@@ -326,9 +326,13 @@ namespace Elatec.NET
     /// </summary>
     public class DESFireKeySettings
     {
-        public DESFireAppAccessRights AccessRights;
-        public UInt32 NumberOfKeys;
-        public DESFireKeyType KeyType;
+        private DESFireAppAccessRights accessRights;
+        private DESFireKeyType keyType;
+        private UInt32 numberOfKeys;
+
+        public DESFireAppAccessRights AccessRights { get => accessRights; set => accessRights = value; }
+        public UInt32 NumberOfKeys { get => numberOfKeys; set => numberOfKeys = value; }
+        public DESFireKeyType KeyType { get => keyType; set => keyType = value; }
     }
 
     /// <summary>
@@ -348,16 +352,24 @@ namespace Elatec.NET
     /// </summary>
     public class DESFireFileSettings
     {
+        private DESFireFileAccessRights fileAccessRights;
+        private DESFireFileType fileType;
+        private byte comSett;
+        private DataFileSetting dataFileSetting;
+        private RecordFileSetting recordFileSetting;
+        private ValueFileSetting valueFileSetting;
+
         public DESFireFileSettings()
         {
             accessRights = new DESFireFileAccessRights();
         }
-        public DESFireFileAccessRights accessRights;
-        public DESFireFileType FileType;
-        public byte comSett;
-        public DataFileSetting dataFile;
-        public RecordFileSetting recordFile;
-        public ValueFileSetting valueFile;
+
+        public DESFireFileAccessRights accessRights { get => fileAccessRights; set => fileAccessRights = value; }
+        public DESFireFileType FileType { get => fileType; set => fileType = value; }
+        public byte ComSett { get => comSett; set => comSett = value; }
+        public DataFileSetting DataFileSetting { get => dataFileSetting; set => dataFileSetting = value; }
+        public RecordFileSetting RecordFileSetting { get => recordFileSetting; set => recordFileSetting = value; }
+        public ValueFileSetting ValueFileSetting { get => valueFileSetting; set => valueFileSetting = value; }
     }
 
     /// <summary>
@@ -376,27 +388,40 @@ namespace Elatec.NET
         DF_FT_CYCLICRECORDFILE      = 4
     }
 
-    public struct DataFileSetting
+    public class DataFileSetting
     {
-        public UInt32 fileSize;
+        private UInt32 fileSize;
+        public UInt32 FileSize { get => fileSize; set => fileSize = value; }
     }
 
-    public struct RecordFileSetting
+    public class RecordFileSetting
     {
-        public UInt32 RecordSize;
-        public UInt32 MaxNumberOfRecords;
-        public UInt32 CurrentNumberOfRecords;
+        private UInt32 recordSize;
+        private UInt32 maxNumberOfRecords;
+        private UInt32 currentNumberOfRecords;
+
+        public UInt32 RecordSize { get => recordSize; set => recordSize = value; }
+        public UInt32 MaxNumberOfRecords { get => maxNumberOfRecords; set => maxNumberOfRecords = value; }
+        public UInt32 CurrentNumberOfRecords { get => currentNumberOfRecords; set => currentNumberOfRecords = value; }
     }
 
-    public struct ValueFileSetting
+    public class ValueFileSetting
     {
-        public UInt32 UpperLimit;
-        public UInt32 LowerLimit;
-        public UInt32 LimitedCreditValue;
+        private UInt32 upperLimit;
+        private UInt32 lowerLimit;
+        private UInt32 limitedCreditValue;
 
-        public byte LimitedCreditEnabled;
-        public byte FreeGetValue;
-        public byte RFU;
+        private byte limitedCreditEnabled;
+        private byte freeGetValue;
+        private byte rFU;
+
+        public UInt32 UpperLimit { get => upperLimit; set => upperLimit = value; }
+        public UInt32 LowerLimit { get => lowerLimit; set => lowerLimit = value; }
+        public UInt32 LimitedCreditValue { get => limitedCreditValue; set => limitedCreditValue = value; }
+
+        public byte LimitedCreditEnabled { get => limitedCreditEnabled; set => limitedCreditEnabled = value; }
+        public byte FreeGetValue { get => freeGetValue; set => freeGetValue = value; }
+        public byte RFU { get => rFU; set => rFU = value; }
     }
 
     /// <summary>
@@ -427,10 +452,15 @@ namespace Elatec.NET
     /// </summary>
     public class DESFireFileAccessRights
     {
-        public byte ReadKeyNo;
-        public byte WriteKeyNo;
-        public byte ReadWriteKeyNo;
-        public byte ChangeKeyNo;    
+        private byte readKeyNo;
+        private byte writeKeyNo;
+        private byte readWriteKeyNo;
+        private byte changeKeyNo;
+
+        public byte ReadKeyNo { get => readKeyNo; set => readKeyNo = value; }
+        public byte WriteKeyNo { get => writeKeyNo; set => writeKeyNo = value; }
+        public byte ReadWriteKeyNo { get => readWriteKeyNo; set => readWriteKeyNo = value; }
+        public byte ChangeKeyNo { get => changeKeyNo; set => changeKeyNo = value; }    
     }
 
     /// <summary>
