@@ -10,11 +10,14 @@ Tested devices:
 * TWN4/B1.50/NCB4.51/PRS1.04/5 (TWN4 Multitec Legic 45)
 * TWN4/B1.06/CCF4.51/PRS1.04   (TWN4 Multitec)
   
-Hint: Some readers may show unexpected behavior. Especially with Legic Capable "TWN4 Multitec (2) HF LF Legic 45". Reason is that some ISO14443 commands are executed by the internal legic chip.
+Hint: Some readers may show unexpected behavior. Especially with Legic Capable "TWN4 Multitec (2) HF LF Legic". The reason is that some ISO14443 commands are executed by the internal legic chip.
 
-Examples:
+Examples for the TWN4 - Legic reader "specialties":
 * SelectTag() is only supported by native readers without legic chip, SearchTag() must be used in order to select a Tag.
+* RATS command cannot be called manually on the Legic capable readers. Instead it is already executed internally when SearchTag() was called. This will be faced when trying to execute RATS with ISO14443-3_TXD. Use ISO14443A_GetAtsAsync() istead. The reader will deal with the right procedure.
 * MifareClassic_LoginAsync() needs the sectornumber. Elatec has a special calculating algorithm for the expected sectornumber. Every sector above sec32 (mifare 4k) is 4times bigger that the lower sectors. They expect the sectornumber also to be timed by 4. So the sectornumber 33 is (33 – 32) * 4 + 32 = 36 dec. Sector 38 is (38 – 32) * 4 + 32 = 56 dec and so on.
+
+> Demo Project: [Elatec.Net.SampleApp](https://github.com/c3rebro/Elatec.Net.SampleApp)
 
 usage example:
 
