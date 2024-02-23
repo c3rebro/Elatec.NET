@@ -2100,7 +2100,7 @@ namespace Elatec.NET
 
                     throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotInit), null);
                 }
-            });
+            }).ConfigureAwait(false);
 
             var version = await GetVersionStringAsync();
             return version.StartsWith("TWN4");
