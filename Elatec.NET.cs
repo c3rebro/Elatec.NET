@@ -122,7 +122,7 @@ namespace Elatec.NET
             var subVersion = version.Split('/');
             if (subVersion.Length > 0)
             {
-                if (subVersion[2].Contains("B"))
+                if (subVersion[2].Contains('B'))
                 {
                     IsTWN4LegicReader = true;
                 }
@@ -2058,25 +2058,24 @@ namespace Elatec.NET
         {
             await Task.Run(() =>
             {
-                if (twnPort == null)
-                {
-                    twnPort = new SerialPort();
-                }
-
-                // Initialize serial port
-                twnPort.PortName = PortName;
-                twnPort.BaudRate = 9600;
-                twnPort.DataBits = 8;
-                twnPort.StopBits = System.IO.Ports.StopBits.One;
-                twnPort.Parity = System.IO.Ports.Parity.None;
-                // NFC functions are known to take less than 2 second to execute.
-                twnPort.ReadTimeout = 2000;
-                twnPort.WriteTimeout = 2000;
-                twnPort.NewLine = "\r";
-                twnPort.ErrorReceived += TXRXErr;
-
                 try
                 {
+                    if (twnPort == null)
+                    {
+                        twnPort = new SerialPort();
+                    }
+
+                    // Initialize serial port
+                    twnPort.PortName = PortName;
+                    twnPort.BaudRate = 9600;
+                    twnPort.DataBits = 8;
+                    twnPort.StopBits = System.IO.Ports.StopBits.One;
+                    twnPort.Parity = System.IO.Ports.Parity.None;
+                    // NFC functions are known to take less than 2 second to execute.
+                    twnPort.ReadTimeout = 2000;
+                    twnPort.WriteTimeout = 2000;
+                    twnPort.NewLine = "\r";
+                    twnPort.ErrorReceived += TXRXErr;
                     // Open TWN4 com port
                     twnPort.Open();
                 }
@@ -2106,6 +2105,46 @@ namespace Elatec.NET
             return version.StartsWith("TWN4");
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public async Task<bool> DisconnectAsync()
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    if (twnPort == null)
+                    {
+                        return;
+                    }
+
+                    else if(twnPort.IsOpen)
+                    {
+                        twnPort.DiscardInBuffer();
+                        twnPort.DiscardOutBuffer();
+                        twnPort.Close();
+                    }
+                }
+                catch (Exception e)
+                {
+                    //Port Busy? Try Again
+                    if (e is UnauthorizedAccessException)
+                    {
+                        throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotOpen), null);
+                    }
+
+                    if (e is IOException)
+                    {
+                        throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotInit), null);
+                    }
+                }
+            }).ConfigureAwait(false);
+
+            return false;
+        }
+
         #region Tools for Simple Protocol
 
         private byte[] GetByteArrayfromPRS(string PRSString)
@@ -2128,7 +2167,7 @@ namespace Elatec.NET
             return buffer;
         }// End of PRStoByteArray
 
-        private string GetPRSfromByteArray(byte[] PRSStream)
+        private static string GetPRSfromByteArray(byte[] PRSStream)
         {
             // Is length of PRS stream = 0
             if (PRSStream.Length < 1)

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net46;net8.0</TargetFrameworks>
+    <TargetFrameworks>net46;net6.0</TargetFrameworks>
     <Copyright></Copyright>
     <Company>MessgeraetetchnikHansen</Company>
 
@@ -21,9 +21,10 @@
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<RepositoryUrl>$(Projekt-URL)</RepositoryUrl>
 	<PackageTags>rfid; elatec; twn4</PackageTags>
-	<PackageReleaseNotes>v0.3 Incompatible changes: changed bytepattern of CardType
+	<PackageReleaseNotes>v0.4 Added DisconnectAsync()
+v0.3 Incompatible changes: changed bytepattern of CardType
 v0.2 take legic capable reader "specialties" into account. See Readme.MD for further details</PackageReleaseNotes>
-	<AssemblyVersion>0.3</AssemblyVersion>
+	<AssemblyVersion>0.4</AssemblyVersion>
 	<FileVersion>$(AssemblyVersion)</FileVersion>
 	<PackageLicenseFile>LICENSE</PackageLicenseFile>
   <IncludeContentInPack>true</IncludeContentInPack>
@@ -62,6 +63,16 @@ v0.2 take legic capable reader "specialties" into account. See Readme.MD for fur
       <PackagePath>\</PackagePath>
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net7.0'">
+    <PackageReference Include="System.IO.Ports">
+      <Version>8.0.0</Version>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
+    <PackageReference Include="System.IO.Ports">
+      <Version>8.0.0</Version>
+    </PackageReference>
   </ItemGroup>
 
 </Project>

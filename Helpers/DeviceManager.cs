@@ -12,16 +12,24 @@ namespace Elatec.NET
 
         public static List<TWN4ReaderDevice> GetAvailableReaders()
         {
-            var readers = new List<TWN4ReaderDevice>();
-
-            foreach (string deviceInstanceId in FindUsbDevices(ServiceUsbSerial, VendorIdElatec, ProductIdTWN4MultiTech2))
+            try
             {
-                var portName = RegQuerySZ($"SYSTEM\\CurrentControlSet\\Enum\\{deviceInstanceId}\\Device Parameters", "PortName");
-                var reader = new TWN4ReaderDevice(portName);
-                readers.Add(reader);
+                var readers = new List<TWN4ReaderDevice>();
+
+                foreach (string deviceInstanceId in FindUsbDevices(ServiceUsbSerial, VendorIdElatec, ProductIdTWN4MultiTech2) ?? new List<string> { "" })
+                {
+                    var portName = RegQuerySZ($"SYSTEM\\CurrentControlSet\\Enum\\{deviceInstanceId}\\Device Parameters", "PortName");
+                    var reader = new TWN4ReaderDevice(portName);
+                    readers.Add(reader);
+                }
+
+                return readers;
+            }
+            catch 
+            {
+                return null;
             }
 
-            return readers;
         }
 
         /// <summary>
