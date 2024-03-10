@@ -83,6 +83,7 @@ usage example:
 
                                 Console.WriteLine("\nFound: {0}\n", mifareChip.SubType);
 
+                                // bitfield-filter on all desfire type chips (EV1 4k, EV2 32k, SmartMX-Desfire etc.)
                                 switch (mifareChip.SubType & MifareChipSubType.DESFire)
                                 {
                                     case MifareChipSubType.DESFire:
@@ -109,6 +110,7 @@ usage example:
                                                 Console.WriteLine("Found AppID(s): {0}", appID.ToString("X8"));
                                             }
                                         
+                                            //try to create app, auth on picc first
                                             await reader.MifareDesfire_SelectApplicationAsync(0);
                                             await reader.MifareDesfire_CreateApplicationAsync(
                                                 DESFireAppAccessRights.KS_DEFAULT,
