@@ -14,7 +14,7 @@ Tested devices:
 * TWN4/B1.50/NCB4.51/PRS1.04/5 (TWN4 Multitec Legic 45)
 * TWN4/B1.06/CCF4.51/PRS1.04   (TWN4 Multitec)
 
-* Tested bix file versions:
+Tested bix file versions:
 * 3.22
 * 4.50
 * 4.51
