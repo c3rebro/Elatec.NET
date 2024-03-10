@@ -5,11 +5,20 @@ Reader-Shop: https://www.elatec-shop.de/de/
 
 DEV-Kit: https://www.elatec-rfid.com/int/twn4-dev-pack
 
+The TWN4 device needs to be prepared first: In order to use a an Elatec TWN4 Reader, the "Simple Protocol" firmware from the devkit needs to be flashed to the device. Make sure you have a backup of the previous installed firmware if you have a custom one installed on it.
+* Download the DEV-Kit
+* In "AppBlaster" choose "Program Firmware Image" and use "TWN4_x_y_Multi_CDC_Simple_Protocol.bix"
+
 Tested devices:
 * TWN4/B1.06/CCB4.51/PRS1.04/5 (TWN4 Multitec 2 Legic HF LF)
 * TWN4/B1.50/NCB4.51/PRS1.04/5 (TWN4 Multitec Legic 45)
 * TWN4/B1.06/CCF4.51/PRS1.04   (TWN4 Multitec)
-  
+
+* Tested bix file versions:
+* 3.22
+* 4.50
+* 4.51
+
 Hint: Some readers may show unexpected behavior. Especially with Legic Capable "TWN4 Multitec (2) HF LF Legic". The reason is that some ISO14443 commands are executed by the internal legic chip.
 
 Examples for the TWN4 - Legic reader "specialties":
