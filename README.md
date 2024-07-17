@@ -226,6 +226,11 @@ usage example:
                     <img src="https://avatars.githubusercontent.com/u/63024793?v=4?s=100" width="100px;" alt="Fabian Aiteanu"/><br />      
                     <sub><b>Fabian Aiteanu</b></sub></a><br />
                 <a href="#code" title="Code">💻</a> 
+           <td align="center" valign="top" width="14.28%">
+                <a href="https://github.com/Xentrice">
+                    <img src="https://avatars.githubusercontent.com/u/12209220?v=4?s=100" width="100px;" alt="Sebastian Felber"/><br />      
+                    <sub><b>Fabian Aiteanu</b></sub></a><br />
+                <a href="#code" title="Code">💻</a>
         </tr>  
     </tbody>
 </table>
