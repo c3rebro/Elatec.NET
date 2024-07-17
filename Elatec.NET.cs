@@ -1125,6 +1125,7 @@ namespace Elatec.NET
                 bytes.AddUInt16((UInt16)(i * 0xFF));
                 bytes.Add((byte)lengthToWrite);
                 bytes.AddRange(data);
+                bytes.Add((byte)mode);
 
                 var parser = await CallFunctionAsync(bytes.ToArray());
                 success = parser.ParseBool();
