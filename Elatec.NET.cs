@@ -2102,21 +2102,24 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task<bool> DisconnectAsync()
         {
-            await Task.Run(() =>
+            var wasDisconnected = await Task.Run(() =>
             {
                 try
                 {
                     if (twnPort == null)
                     {
-                        return;
+                        return true;
                     }
 
-                    else if(twnPort.IsOpen)
+                    if (twnPort.IsOpen)
                     {
                         twnPort.DiscardInBuffer();
                         twnPort.DiscardOutBuffer();
                         twnPort.Close();
+                        return true;
                     }
+
+                    return true;
                 }
                 catch (Exception e)
                 {
@@ -2130,10 +2133,12 @@ namespace Elatec.NET
                     {
                         throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotInit), null);
                     }
+
+                    throw;
                 }
             }).ConfigureAwait(false);
 
-            return false;
+            return wasDisconnected;
         }
 
         #region Tools for Simple Protocol
