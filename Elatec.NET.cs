@@ -2342,9 +2342,18 @@ namespace Elatec.NET
             if (!_disposed)
             {
                 if (disposing)
-                {                 
+                {
                     // Dispose any managed objects
-                    // ...
+                    if (twnPort != null)
+                    {
+                        if (twnPort.IsOpen)
+                        {
+                            twnPort.Close();
+                        }
+
+                        twnPort.Dispose();
+                        twnPort = null;
+                    }
                 }
 
                 Thread.Sleep(20);
