@@ -21,10 +21,12 @@
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<RepositoryUrl>$(Projekt-URL)</RepositoryUrl>
 	<PackageTags>rfid; elatec; twn4</PackageTags>
-	<PackageReleaseNotes>v0.4 Added DisconnectAsync()
+	<PackageReleaseNotes>v0.4.2 Fix: Error in signleton init leads to stale comport
+v0.4.1 Fix: Missing CryptoMode byte in WriteDataAsync()
+v0.4 Added DisconnectAsync()
 v0.3 Incompatible changes: changed bytepattern of CardType
 v0.2 take legic capable reader "specialties" into account. See Readme.MD for further details</PackageReleaseNotes>
-	<AssemblyVersion>0.4</AssemblyVersion>
+	<AssemblyVersion>0.4.2</AssemblyVersion>
 	<FileVersion>$(AssemblyVersion)</FileVersion>
 	<PackageLicenseFile>LICENSE</PackageLicenseFile>
   <IncludeContentInPack>true</IncludeContentInPack>
