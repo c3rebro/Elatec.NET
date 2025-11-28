@@ -120,17 +120,7 @@ namespace Elatec.NET
             var parser = await CallFunctionAsync(new byte[] { API_SYS, 4, /* maxLen */ byte.MaxValue });
             string version = parser.ParseAsciiString();
             var subVersion = version.Split('/');
-            if (subVersion.Length > 0)
-            {
-                if (subVersion[2].Contains('B'))
-                {
-                    IsTWN4LegicReader = true;
-                }
-                else
-                {
-                    IsTWN4LegicReader = false;
-                }
-            }
+            IsTWN4LegicReader = subVersion.Length >= 3 && subVersion[2].Contains('B');
             return version;
         }
 
