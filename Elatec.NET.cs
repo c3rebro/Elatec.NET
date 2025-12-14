@@ -519,25 +519,61 @@ namespace Elatec.NET
 
         public static readonly byte API_RF = 5;
 
+        // API_RF function numbers (Simple Protocol: 0x0500..0x0504)
+        public static readonly byte RF_SEARCHTAG = 0;
+        public static readonly byte RF_SETRFOFF = 1;
+        public static readonly byte RF_SETTAGTYPES = 2;
+        public static readonly byte RF_GETTAGTYPES = 3;
+        public static readonly byte RF_GETSUPPORTEDTAGTYPES = 4;
+
+        /// <summary>
+        /// Calculates the TagTypes bitmask value for a given TagType code (see Appendix A in the Simple Protocol spec).
+        /// </summary>
+        /// <param name="tagType">The TagType code (e.g. 0x80 for MIFARE).</param>
+        /// <returns>The corresponding UInt32 mask bit (TAGMASK = 1 &lt;&lt; (TagType &amp; 0x1F)).</returns>
+        public static uint TagMaskFromTagType(byte tagType) => 1u << (tagType & 0x1F);
+
+
         /// <summary>
         ///     Use this function to search a transponder in the reading range of TWN4. TWN4 is searching for all types
         ///     of transponders, which have been specified via function SetTagTypes. If a transponder has been found,
         ///     tag type, length of ID and ID data itself are returned.
         /// </summary>
-        /// <returns>A SearchTagResult or <see langword="null" /> if no tag was detected.</returns>
+        /// <remarks>
+        ///     Simple Protocol command: 0x0500 (API_RF / SearchTag).
+        /// </remarks>
+        /// <returns>
+        ///     A <see cref="SearchTagResult" /> or <see langword="null" /> if no tag was detected.
+        ///     This overload requests the maximum ID length (MaxIDBytes = 0xFF).
+        /// </returns>
         public async Task<SearchTagResult> SearchTagAsync()
         {
-            var parser = await CallFunctionAsync(new byte[] { API_RF, 0, /* maxIDBytes */ byte.MaxValue });
+            return await SearchTagAsync(byte.MaxValue);
+        }
+
+        /// <summary>
+        ///     Use this function to search a transponder in the reading range of TWN4. TWN4 is searching for all types
+        ///     of transponders, which have been specified via function SetTagTypes. If a transponder has been found,
+        ///     tag type, length of ID and ID data itself are returned.
+        /// </summary>
+        /// <remarks>
+        ///     Simple Protocol command: 0x0500 (API_RF / SearchTag).
+        /// </remarks>
+        /// <param name="maxIdBytes">Maximum number of ID bytes to return (MaxIDBytes).</param>
+        /// <returns>A <see cref="SearchTagResult" /> or <see langword="null" /> if no tag was detected.</returns>
+        public async Task<SearchTagResult> SearchTagAsync(byte maxIdBytes)
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_RF, RF_SEARCHTAG, maxIdBytes });
             var found = parser.ParseBool();
-            if (found)
+            if (!found)
+                return null;
+
+            return new SearchTagResult
             {
-                var tag = new SearchTagResult();
-                tag.ChipType = (ChipType)parser.ParseByte();
-                tag.IDBitCount = parser.ParseByte();
-                tag.IDBytes = parser.ParseVarByteArray();
-                return tag;
-            }
-            return null;
+                ChipType = (ChipType)parser.ParseByte(),
+                IDBitCount = parser.ParseByte(),
+                IDBytes = parser.ParseVarByteArray()
+            };
         }
 
         public class SearchTagResult
@@ -565,20 +601,36 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task SetRFOffAsync()
         {
-            await CallFunctionAsync(new byte[] { API_RF, 1 });
+            await CallFunctionAsync(new byte[] { API_RF, RF_SETRFOFF });
         }
 
         /// <summary>
         /// Use this function to configure the transponders, which are searched by function SearchTag.
         /// </summary>
-        /// <param name="lfTagTypes"></param>
-        /// <param name="hfTagTypes"></param>
-        /// <returns></returns>
+        /// <remarks>
+        /// The parameters are bitmasks (UInt32) of enabled tag technologies, split into LF and HF.
+        /// If you have "TagType codes" (e.g. 0x80 for MIFARE), convert them using <see cref="TagMaskFromTagType(byte)"/>.
+        /// </remarks>
+        /// <param name="lfTagTypes">LF tag type mask.</param>
+        /// <param name="hfTagTypes">HF tag type mask.</param>
         public async Task SetTagTypesAsync(LFTagTypes lfTagTypes, HFTagTypes hfTagTypes)
         {
-            List<byte> bytes = new List<byte> { API_RF, 2 };
-            bytes.AddUInt32((uint)lfTagTypes);
-            bytes.AddUInt32((uint)hfTagTypes);
+            await SetTagTypesAsync((uint)lfTagTypes, (uint)hfTagTypes);
+        }
+
+        /// <summary>
+        /// Use this function to configure the transponders, which are searched by function SearchTag.
+        /// </summary>
+        /// <remarks>
+        /// This overload takes the raw UInt32 masks exactly as defined by the Simple Protocol command 0x0502.
+        /// </remarks>
+        /// <param name="tagTypesLF">LF tag types bitmask.</param>
+        /// <param name="tagTypesHF">HF tag types bitmask.</param>
+        public async Task SetTagTypesAsync(uint tagTypesLF, uint tagTypesHF)
+        {
+            List<byte> bytes = new List<byte> { API_RF, RF_SETTAGTYPES };
+            bytes.AddUInt32(tagTypesLF);
+            bytes.AddUInt32(tagTypesHF);
             await CallFunctionAsync(bytes.ToArray());
         }
 
@@ -589,16 +641,21 @@ namespace Elatec.NET
         /// <returns>Tag types.</returns>
         public async Task<GetTagTypesResult> GetTagTypesAsync()
         {
-            var parser = await CallFunctionAsync(new byte[] { API_RF, 3 });
+            var parser = await CallFunctionAsync(new byte[] { API_RF, RF_GETTAGTYPES });
             var lf = parser.ParseUInt32();
             var hf = parser.ParseUInt32();
 
             return new GetTagTypesResult() { LFTagTypes = (LFTagTypes)lf, HFTagTypes = (HFTagTypes)hf };
         }
 
+        /// <summary>
+        /// Tag type masks currently configured for <see cref="SearchTagAsync()"/> (Simple Protocol: 0x0503).
+        /// </summary>
         public class GetTagTypesResult
         {
+            /// <summary>LF tag types bitmask.</summary>
             public LFTagTypes LFTagTypes { get; internal set; }
+            /// <summary>HF tag types bitmask.</summary>
             public HFTagTypes HFTagTypes { get; internal set; }
         }
 
@@ -611,16 +668,21 @@ namespace Elatec.NET
         /// <returns>Tag types.</returns>
         public async Task<GetSupportedTagTypesResult> GetSupportedTagTypesAsync()
         {
-            var parser = await CallFunctionAsync(new byte[] { API_RF, 4 });
+            var parser = await CallFunctionAsync(new byte[] { API_RF, RF_GETSUPPORTEDTAGTYPES });
             var lf = parser.ParseUInt32();
             var hf = parser.ParseUInt32();
 
             return new GetSupportedTagTypesResult() { LFTagTypes = (LFTagTypes)lf, HFTagTypes = (HFTagTypes)hf };
         }
 
+        /// <summary>
+        /// Tag type masks supported by this device (Simple Protocol: 0x0504).
+        /// </summary>
         public class GetSupportedTagTypesResult
         {
+            /// <summary>LF tag types bitmask.</summary>
             public LFTagTypes LFTagTypes { get; internal set; }
+            /// <summary>HF tag types bitmask.</summary>
             public HFTagTypes HFTagTypes { get; internal set; }
         }
 
@@ -634,6 +696,12 @@ namespace Elatec.NET
         public static readonly byte MIFARE_CLASSIC_READBLOCK = 1;
         public static readonly byte MIFARE_CLASSIC_WRITEBLOCK = 2;
 
+
+        public static readonly byte MIFARE_CLASSIC_READVALUEBLOCK = 3;
+        public static readonly byte MIFARE_CLASSIC_WRITEVALUEBLOCK = 4;
+        public static readonly byte MIFARE_CLASSIC_INCREMENTVALUEBLOCK = 5;
+        public static readonly byte MIFARE_CLASSIC_DECREMENTVALUEBLOCK = 6;
+        public static readonly byte MIFARE_CLASSIC_COPYVALUEBLOCK = 7;
         /// <summary>
         /// Login to a Mifare Classic single Sector.
         /// </summary>
@@ -702,14 +770,117 @@ namespace Elatec.NET
                 throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
             }
         }
+/// <summary>
+/// Read a Value Block from a MIFARE Classic transponder.
+/// </summary>
+/// <param name="blockNumber">Value block number.</param>
+/// <returns>Value stored in the block (32-bit, returned as signed int).</returns>
+/// <exception cref="ReaderException"></exception>
+public async Task<int> MifareClassic_ReadValueBlockAsync(byte blockNumber)
+{
+    List<byte> bytes = new List<byte> { API_MIFARECLASSIC, MIFARE_CLASSIC_READVALUEBLOCK };
+    bytes.Add(blockNumber);
 
-        // TODO: SYSFUNC(API_MIFARECLASSIC, 3, bool MifareClassic_ReadValueBlock(int Block, int* Value))
-        // TODO: SYSFUNC(API_MIFARECLASSIC, 4, bool MifareClassic_WriteValueBlock(int Block, int Value))
-        // TODO: SYSFUNC(API_MIFARECLASSIC, 5, bool MifareClassic_IncrementValueBlock(int Block, int Value))
-        // TODO: SYSFUNC(API_MIFARECLASSIC, 6, bool MifareClassic_DecrementValueBlock(int Block, int Value))
-        // TODO: SYSFUNC(API_MIFARECLASSIC, 7, bool MifareClassic_CopyValueBlock(int SourceBlock, int DestBlock))
+    var parser = await CallFunctionAsync(bytes.ToArray());
+    var success = parser.ParseBool();
 
+    if (success)
+    {
+        var value = parser.ParseUInt32();
+        return unchecked((int)value);
+    }
 
+    throw new ReaderException("Call was not successfull, error " +
+                              Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+}
+
+/// <summary>
+/// Write a Value Block to a MIFARE Classic transponder.
+/// </summary>
+/// <param name="blockNumber">Value block number.</param>
+/// <param name="value">Value to write (32-bit).</param>
+/// <exception cref="ReaderException"></exception>
+public async Task MifareClassic_WriteValueBlockAsync(byte blockNumber, int value)
+{
+    List<byte> bytes = new List<byte> { API_MIFARECLASSIC, MIFARE_CLASSIC_WRITEVALUEBLOCK };
+    bytes.Add(blockNumber);
+    bytes.AddUInt32(unchecked((uint)value));
+
+    var parser = await CallFunctionAsync(bytes.ToArray());
+    var success = parser.ParseBool();
+
+    if (!success)
+    {
+        throw new ReaderException("Call was not successfull, error " +
+                                  Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+    }
+}
+
+/// <summary>
+/// Increment a Value Block on a MIFARE Classic transponder.
+/// </summary>
+/// <param name="blockNumber">Value block number.</param>
+/// <param name="value">Increment amount (32-bit).</param>
+/// <exception cref="ReaderException"></exception>
+public async Task MifareClassic_IncrementValueBlockAsync(byte blockNumber, int value)
+{
+    List<byte> bytes = new List<byte> { API_MIFARECLASSIC, MIFARE_CLASSIC_INCREMENTVALUEBLOCK };
+    bytes.Add(blockNumber);
+    bytes.AddUInt32(unchecked((uint)value));
+
+    var parser = await CallFunctionAsync(bytes.ToArray());
+    var success = parser.ParseBool();
+
+    if (!success)
+    {
+        throw new ReaderException("Call was not successfull, error " +
+                                  Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+    }
+}
+
+/// <summary>
+/// Decrement a Value Block on a MIFARE Classic transponder.
+/// </summary>
+/// <param name="blockNumber">Value block number.</param>
+/// <param name="value">Decrement amount (32-bit).</param>
+/// <exception cref="ReaderException"></exception>
+public async Task MifareClassic_DecrementValueBlockAsync(byte blockNumber, int value)
+{
+    List<byte> bytes = new List<byte> { API_MIFARECLASSIC, MIFARE_CLASSIC_DECREMENTVALUEBLOCK };
+    bytes.Add(blockNumber);
+    bytes.AddUInt32(unchecked((uint)value));
+
+    var parser = await CallFunctionAsync(bytes.ToArray());
+    var success = parser.ParseBool();
+
+    if (!success)
+    {
+        throw new ReaderException("Call was not successfull, error " +
+                                  Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+    }
+}
+
+/// <summary>
+/// Copy a Value Block on a MIFARE Classic transponder.
+/// </summary>
+/// <param name="sourceBlockNumber">Source value block.</param>
+/// <param name="destinationBlockNumber">Destination value block.</param>
+/// <exception cref="ReaderException"></exception>
+public async Task MifareClassic_CopyValueBlockAsync(byte sourceBlockNumber, byte destinationBlockNumber)
+{
+    List<byte> bytes = new List<byte> { API_MIFARECLASSIC, MIFARE_CLASSIC_COPYVALUEBLOCK };
+    bytes.Add(sourceBlockNumber);
+    bytes.Add(destinationBlockNumber);
+
+    var parser = await CallFunctionAsync(bytes.ToArray());
+    var success = parser.ParseBool();
+
+    if (!success)
+    {
+        throw new ReaderException("Call was not successfull, error " +
+                                  Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+    }
+}
         #endregion
 
         #region API_MIFAREULTRALIGHT / Mifare Ultralight Functions
@@ -738,10 +909,110 @@ namespace Elatec.NET
             return null;
         }
 
-        // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 1, bool MifareUltralight_WritePage(int Page, const byte* Data))
-        // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 2, bool MifareUltralightC_Authenticate(const byte* Key))
-        // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 3, bool MifareUltralightC_SAMAuthenticate(int KeyNo, int KeyVersion, const byte* DIVInput, int DIVByteCnt))
-        // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 4, bool MifareUltralightC_WriteKeyFromSAM(int KeyNo, int KeyVersion, const byte* DIVInput, int DIVByteCnt))
+
+/// <summary>
+/// Write 4 bytes to a MIFARE Ultralight (and Ultralight C) page.
+/// </summary>
+/// <param name="page">Page address to write.</param>
+/// <param name="data">Exactly 4 bytes of data.</param>
+public async Task MifareUltralight_WritePageAsync(byte page, byte[] data)
+{
+    if (data == null) throw new ArgumentNullException(nameof(data));
+    if (data.Length != 4) throw new ArgumentException("MIFARE Ultralight page size is 4 bytes.", nameof(data));
+
+    List<byte> bytes = new List<byte> { API_MIFAREULTRALIGHT, 1, page };
+    bytes.AddRange(data);
+
+    var parser = await CallFunctionAsync(bytes.ToArray());
+    var success = parser.ParseBool();
+
+    if (!success)
+    {
+        throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+    }
+}
+
+/// <summary>
+/// Authenticate on MIFARE Ultralight C using a 16 byte key.
+/// </summary>
+/// <param name="keyHex">16 byte key as hex string (32 hex chars).</param>
+public async Task MifareUltralightC_AuthenticateAsync(string keyHex)
+{
+    if (keyHex == null) throw new ArgumentNullException(nameof(keyHex));
+
+    var key = ByteArrayConverter.GetBytesFrom(keyHex);
+    if (key == null || key.Length != 16)
+        throw new ArgumentException("Ultralight C key must be 16 bytes (32 hex characters).", nameof(keyHex));
+
+    await MifareUltralightC_AuthenticateAsync(key);
+}
+
+/// <summary>
+/// Authenticate on MIFARE Ultralight C using a 16 byte key.
+/// </summary>
+/// <param name="key">16 byte key.</param>
+public async Task MifareUltralightC_AuthenticateAsync(byte[] key)
+{
+    if (key == null) throw new ArgumentNullException(nameof(key));
+    if (key.Length != 16) throw new ArgumentException("Ultralight C key must be 16 bytes.", nameof(key));
+
+    List<byte> bytes = new List<byte> { API_MIFAREULTRALIGHT, 2 };
+    bytes.AddRange(key);
+
+    var parser = await CallFunctionAsync(bytes.ToArray());
+    var success = parser.ParseBool();
+
+    if (!success)
+    {
+        throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+    }
+}
+
+/// <summary>
+/// Authenticate on MIFARE Ultralight C using a key stored in the SAM (optional diversification input).
+/// </summary>
+/// <param name="keyNo">SAM key number.</param>
+/// <param name="keyVersion">SAM key version.</param>
+/// <param name="divInput">Diversification input (may be null/empty).</param>
+public async Task MifareUltralightC_SAMAuthenticateAsync(byte keyNo, byte keyVersion, byte[] divInput = null)
+{
+    var div = divInput ?? Array.Empty<byte>();
+    if (div.Length > byte.MaxValue) throw new ArgumentException("DIVInput too large (max 255 bytes).", nameof(divInput));
+
+    List<byte> bytes = new List<byte> { API_MIFAREULTRALIGHT, 3, keyNo, keyVersion, (byte)div.Length };
+    bytes.AddRange(div);
+
+    var parser = await CallFunctionAsync(bytes.ToArray());
+    var success = parser.ParseBool();
+
+    if (!success)
+    {
+        throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+    }
+}
+
+/// <summary>
+/// Write Ultralight C key to tag from SAM (optional diversification input).
+/// </summary>
+/// <param name="keyNo">SAM key number.</param>
+/// <param name="keyVersion">SAM key version.</param>
+/// <param name="divInput">Diversification input (may be null/empty).</param>
+public async Task MifareUltralightC_WriteKeyFromSAMAsync(byte keyNo, byte keyVersion, byte[] divInput = null)
+{
+    var div = divInput ?? Array.Empty<byte>();
+    if (div.Length > byte.MaxValue) throw new ArgumentException("DIVInput too large (max 255 bytes).", nameof(divInput));
+
+    List<byte> bytes = new List<byte> { API_MIFAREULTRALIGHT, 4, keyNo, keyVersion, (byte)div.Length };
+    bytes.AddRange(div);
+
+    var parser = await CallFunctionAsync(bytes.ToArray());
+    var success = parser.ParseBool();
+
+    if (!success)
+    {
+        throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+    }
+}
 
         /// <summary>
         /// The Fast Read function reads a number of pages beginning at a starting page from the transponder.
@@ -761,12 +1032,112 @@ namespace Elatec.NET
             return null;
         }
 
-        // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 6, bool MifareUltralightEV1_IncCounter(int CounterAddr, int IncrValue))
-        // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 7, bool MifareUltralightEV1_ReadCounter(int CounterAddr, int* CounterValue))
-        // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 8, bool MifareUltralightEV1_ReadSig(byte* ECCSig))
-        // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 9, bool MifareUltralightEV1_GetVersion(byte* Version))
-        // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 10, bool MifareUltralightEV1_PwdAuth(const byte* Password, const byte* PwdAck))
-        // TODO: SYSFUNC(API_MIFAREULTRALIGHT, 11, bool MifareUltralightEV1_CheckTearingEvent(int CounterAddr, byte* ValidFlag))
+
+/// <summary>
+/// Increment one of the Ultralight EV1 counters.
+/// </summary>
+/// <param name="counterAddr">Counter address.</param>
+/// <param name="incrValue">Increment value (UInt32).</param>
+public async Task MifareUltralightEV1_IncCounterAsync(byte counterAddr, uint incrValue)
+{
+    List<byte> bytes = new List<byte> { API_MIFAREULTRALIGHT, 6, counterAddr };
+    bytes.AddUInt32(incrValue);
+
+    var parser = await CallFunctionAsync(bytes.ToArray());
+    var success = parser.ParseBool();
+
+    if (!success)
+    {
+        throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+    }
+}
+
+/// <summary>
+/// Read one of the Ultralight EV1 counters.
+/// </summary>
+/// <param name="counterAddr">Counter address.</param>
+/// <returns>Counter value or null on failure.</returns>
+public async Task<uint?> MifareUltralightEV1_ReadCounterAsync(byte counterAddr)
+{
+    var parser = await CallFunctionAsync(new byte[] { API_MIFAREULTRALIGHT, 7, counterAddr });
+    var success = parser.ParseBool();
+    if (success)
+    {
+        return parser.ParseUInt32();
+    }
+    return null;
+}
+
+/// <summary>
+/// Read the ECC signature from an Ultralight EV1 tag.
+/// </summary>
+/// <returns>32 byte ECC signature or null on failure.</returns>
+public async Task<byte[]> MifareUltralightEV1_ReadSigAsync()
+{
+    var parser = await CallFunctionAsync(new byte[] { API_MIFAREULTRALIGHT, 8 });
+    var success = parser.ParseBool();
+    if (success)
+    {
+        return parser.ParseFixByteArray(32);
+    }
+    return null;
+}
+
+/// <summary>
+/// Get version information from an Ultralight EV1 tag.
+/// </summary>
+/// <returns>8 byte version information or null on failure.</returns>
+public async Task<byte[]> MifareUltralightEV1_GetVersionAsync()
+{
+    var parser = await CallFunctionAsync(new byte[] { API_MIFAREULTRALIGHT, 9 });
+    var success = parser.ParseBool();
+    if (success)
+    {
+        return parser.ParseFixByteArray(8);
+    }
+    return null;
+}
+
+/// <summary>
+/// Perform password authentication (PWD_AUTH) on Ultralight EV1 / NTAG compatible tags.
+/// </summary>
+/// <param name="password">4 byte password.</param>
+/// <param name="pwdAck">2 byte PACK / PwdAck.</param>
+public async Task MifareUltralightEV1_PwdAuthAsync(byte[] password, byte[] pwdAck)
+{
+    if (password == null) throw new ArgumentNullException(nameof(password));
+    if (pwdAck == null) throw new ArgumentNullException(nameof(pwdAck));
+    if (password.Length != 4) throw new ArgumentException("Password must be 4 bytes.", nameof(password));
+    if (pwdAck.Length != 2) throw new ArgumentException("PwdAck must be 2 bytes.", nameof(pwdAck));
+
+    List<byte> bytes = new List<byte> { API_MIFAREULTRALIGHT, 10 };
+    bytes.AddRange(password);
+    bytes.AddRange(pwdAck);
+
+    var parser = await CallFunctionAsync(bytes.ToArray());
+    var success = parser.ParseBool();
+
+    if (!success)
+    {
+        throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+    }
+}
+
+/// <summary>
+/// Check tearing event flag for an Ultralight EV1 counter.
+/// </summary>
+/// <param name="counterAddr">Counter address.</param>
+/// <returns>ValidFlag byte or null on failure.</returns>
+public async Task<byte?> MifareUltralightEV1_CheckTearingEventAsync(byte counterAddr)
+{
+    var parser = await CallFunctionAsync(new byte[] { API_MIFAREULTRALIGHT, 11, counterAddr });
+    var success = parser.ParseBool();
+    if (success)
+    {
+        return parser.ParseByte();
+    }
+    return null;
+}
 
         #endregion
 
@@ -775,6 +1146,8 @@ namespace Elatec.NET
         public static readonly byte API_MIFAREDESFIRE = 15;
 
         private static readonly byte CRYPTO_ENV = 0;
+        private static readonly byte DESFIRE_AUTHMODE_COMPATIBLE = 0;
+        private static readonly byte DESFIRE_AUTHMODE_EV1 = 1;
         private static readonly byte DESFIRE_KEYLENGTH = 0x10;
         private static readonly byte DESFIRE_MAX_FILEIDS = 0xFF;
 
@@ -788,13 +1161,31 @@ namespace Elatec.NET
         private static readonly byte MIFARE_DESFIRE_GETFILESETTINGS = 7;
         private static readonly byte MIFARE_DESFIRE_READDATA = 8;
         private static readonly byte MIFARE_DESFIRE_WRITEDATA = 9;
+        private static readonly byte MIFARE_DESFIRE_GETVALUE = 10;
+        private static readonly byte MIFARE_DESFIRE_CREDIT = 11;
+        private static readonly byte MIFARE_DESFIRE_DEBIT = 12;
+        private static readonly byte MIFARE_DESFIRE_LIMITEDCREDIT = 13;
         private static readonly byte MIFARE_DESFIRE_GETFREEMEMORY = 14;
         private static readonly byte MIFARE_DESFIRE_FORMATTAG = 15;
         private static readonly byte MIFARE_DESFIRE_CREATE_STDDATAFILE = 16;
+        private static readonly byte MIFARE_DESFIRE_CREATE_VALUEFILE = 17;
         private static readonly byte MIFARE_DESFIRE_GETVERSION = 18;
         private static readonly byte MIFARE_DESFIRE_DELETEFILE = 19;
+        private static readonly byte MIFARE_DESFIRE_COMMITTRANSACTION = 20;
+        private static readonly byte MIFARE_DESFIRE_ABORTTRANSACTION = 21;
+        private static readonly byte MIFARE_DESFIRE_GETUID = 22;
+        private static readonly byte MIFARE_DESFIRE_GETKEYVERSION = 23;
         private static readonly byte MIFARE_DESFIRE_CHANGEKEYSETTINGS = 24;
         private static readonly byte MIFARE_DESFIRE_CHANGEKEY = 25;
+        private static readonly byte MIFARE_DESFIRE_CHANGEFILESETTINGS = 26;
+        private static readonly byte MIFARE_DESFIRE_DISABLEFORMATCARD = 27;
+        private static readonly byte MIFARE_DESFIRE_ENABLERANDOMID = 28;
+        private static readonly byte MIFARE_DESFIRE_SETDEFAULTKEY = 29;
+        private static readonly byte MIFARE_DESFIRE_SETATS = 30;
+        private static readonly byte MIFARE_DESFIRE_CREATERECORDFILE = 31;
+        private static readonly byte MIFARE_DESFIRE_READRECORDS = 32;
+        private static readonly byte MIFARE_DESFIRE_WRITERECORD = 33;
+        private static readonly byte MIFARE_DESFIRE_CLEARRECORDFILE = 34;
 
         /// <summary>
         /// Retrieve the Available Application IDs after selecing PICC (App 0), Authentication is needed - depending on the security config
@@ -1132,10 +1523,96 @@ namespace Elatec.NET
             }
         }
 
-        //TODO: SYSFUNC(API_DESFIRE,10, bool DESFire_GetValue(int CryptoEnv, int FileNo, int* Value, int CommSet))
-        //TODO: SYSFUNC(API_DESFIRE,11, bool DESFire_Credit(int CryptoEnv, int FileNo, const int Value, int CommSet))
-        //TODO: SYSFUNC(API_DESFIRE,12, bool DESFire_Debit(int CryptoEnv, int FileNo, const int Value, int CommSet))
-        //TODO: SYSFUNC(API_DESFIRE,13, bool DESFire_LimitedCredit(int CryptoEnv, int FileNo, const int Value, int CommSet))
+                /// <summary>
+        /// Get the current value of a DESFire value file.
+        /// </summary>
+        /// <param name="fileNo">File number (value file)</param>
+        /// <param name="mode">Communication setting (Plain/CMAC/Encrypted)</param>
+        /// <returns>The current value.</returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<UInt32> MifareDesfire_GetValueAsync(byte fileNo, EncryptionMode mode)
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETVALUE, CRYPTO_ENV, fileNo, (byte)mode };
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (success)
+            {
+                return parser.ParseUInt32();
+            }
+
+            throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+        }
+
+        /// <summary>
+        /// Credit (add) a value to a DESFire value file (transactional).
+        /// </summary>
+        /// <param name="fileNo">File number (value file)</param>
+        /// <param name="value">Value to credit</param>
+        /// <param name="mode">Communication setting (Plain/CMAC/Encrypted)</param>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_CreditAsync(byte fileNo, UInt32 value, EncryptionMode mode)
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CREDIT, CRYPTO_ENV, fileNo };
+
+            bytes.AddUInt32(value);
+            bytes.Add((byte)mode);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Debit (subtract) a value from a DESFire value file (transactional).
+        /// </summary>
+        /// <param name="fileNo">File number (value file)</param>
+        /// <param name="value">Value to debit</param>
+        /// <param name="mode">Communication setting (Plain/CMAC/Encrypted)</param>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_DebitAsync(byte fileNo, UInt32 value, EncryptionMode mode)
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_DEBIT, CRYPTO_ENV, fileNo };
+
+            bytes.AddUInt32(value);
+            bytes.Add((byte)mode);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Limited credit a value to a DESFire value file (transactional).
+        /// </summary>
+        /// <param name="fileNo">File number (value file)</param>
+        /// <param name="value">Value to credit</param>
+        /// <param name="mode">Communication setting (Plain/CMAC/Encrypted)</param>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_LimitedCreditAsync(byte fileNo, UInt32 value, EncryptionMode mode)
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_LIMITEDCREDIT, CRYPTO_ENV, fileNo };
+
+            bytes.AddUInt32(value);
+            bytes.Add((byte)mode);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
 
         /// <summary>
         /// Get the free Memory of a desfire. 
@@ -1166,7 +1643,7 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task MifareDesfire_FormatTagAsync()
         {
-            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_FORMATTAG, CRYPTO_ENV };
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_FORMATTAG, CRYPTO_ENV, DESFIRE_AUTHMODE_COMPATIBLE };
 
             var parser = await CallFunctionAsync(bytes.ToArray());
             var success = parser.ParseBool();
@@ -1210,9 +1687,57 @@ namespace Elatec.NET
                 throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
             }
         }
+        /// <summary>
+        /// Create a value file on a DESFire.
+        /// </summary>
+        /// <param name="fileNo"></param>
+        /// <param name="fileType"><see cref="DESFireFileType"/></param>
+        /// <param name="mode"><see cref="EncryptionMode"/></param>
+        /// <param name="accessRights"><see cref="DESFireFileAccessRights"/></param>
+        /// <param name="lowerLimit"></param>
+        /// <param name="upperLimit"></param>
+        /// <param name="limitedCreditValue"></param>
+        /// <param name="freeGetValue">If true, GetValue is allowed without authentication (bit 0).</param>
+        /// <param name="limitedCreditEnabled">If true, LimitedCredit is enabled (bit 1).</param>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_CreateValueFileAsync(
+            byte fileNo,
+            DESFireFileType fileType,
+            EncryptionMode mode,
+            DESFireFileAccessRights accessRights,
+            UInt32 lowerLimit,
+            UInt32 upperLimit,
+            UInt32 limitedCreditValue,
+            bool freeGetValue,
+            bool limitedCreditEnabled)
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CREATE_VALUEFILE, CRYPTO_ENV, fileNo, (byte)fileType, (byte)mode };
 
-        //TODO: SYSFUNC(API_DESFIRE,17, bool DESFire_CreateValueFile(int CryptoEnv, int FileNo, const TDESFireFileSettings* FileSettings))
+            UInt16 fileAccessRights = 0;
 
+            fileAccessRights |= accessRights.ReadKeyNo;
+            fileAccessRights |= (UInt16)(accessRights.WriteKeyNo << 4);
+            fileAccessRights |= (UInt16)(accessRights.ReadWriteKeyNo << 8);
+            fileAccessRights |= (UInt16)(accessRights.ChangeKeyNo << 12);
+
+            bytes.AddUInt16(fileAccessRights);
+            bytes.AddUInt32(lowerLimit);
+            bytes.AddUInt32(upperLimit);
+            bytes.AddUInt32(limitedCreditValue);
+
+            UInt32 flags = 0;
+            if (freeGetValue) flags |= 0x01;
+            if (limitedCreditEnabled) flags |= 0x02;
+            bytes.AddUInt32(flags);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
         /// <summary>
         /// Get version of a desfire.
         /// </summary>
@@ -1258,11 +1783,81 @@ namespace Elatec.NET
             }
         }
 
-        //TODO: SYSFUNC(API_DESFIRE,20, bool DESFire_CommitTransaction(int CryptoEnv))
-        //TODO: SYSFUNC(API_DESFIRE,21, bool DESFire_AbortTransaction(int CryptoEnv))
-        //TODO: SYSFUNC(API_DESFIRE,22, bool DESFire_GetUID(int CryptoEnv, byte* UID, int* Length, int BufferSize))
-        //TODO: SYSFUNC(API_DESFIRE,23, bool DESFire_GetKeyVersion(int CryptoEnv, int KeyNo, byte* KeyVer))
+        /// <summary>
+        /// Commit a DESFire transaction (e.g., after Credit/Debit/LimitedCredit).
+        /// </summary>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_CommitTransactionAsync()
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_COMMITTRANSACTION, CRYPTO_ENV };
 
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Abort a DESFire transaction.
+        /// </summary>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_AbortTransactionAsync()
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_ABORTTRANSACTION, CRYPTO_ENV };
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Get the UID from the currently selected DESFire card.
+        /// </summary>
+        /// <param name="bufferSize">Maximum UID bytes to return (default: 0xFF)</param>
+        /// <returns>UID byte array</returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<byte[]> MifareDesfire_GetUidAsync(byte bufferSize = 0xFF)
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETUID, CRYPTO_ENV, bufferSize };
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (success)
+            {
+                return parser.ParseVarByteArray();
+            }
+
+            throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+        }
+
+        /// <summary>
+        /// Get the key version of a DESFire key.
+        /// </summary>
+        /// <param name="keyNo">Key number</param>
+        /// <returns>Key version</returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<byte> MifareDesfire_GetKeyVersionAsync(byte keyNo)
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_GETKEYVERSION, CRYPTO_ENV, keyNo };
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (success)
+            {
+                return parser.ParseByte();
+            }
+
+            throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+        }
         /// <summary>
         /// 
         /// </summary>
@@ -1319,16 +1914,237 @@ namespace Elatec.NET
             }
         }
 
-        //TODO: SYSFUNC(API_DESFIRE,26, bool DESFire_ChangeFileSettings(int CryptoEnv, int FileNo, int NewCommSet, int OldAccessRights, int NewAccessRights))
-        //TODO: SYSFUNC(API_DESFIRE,27, bool DESFire_DisableFormatTag(int CryptoEnv))
-        //TODO: SYSFUNC(API_DESFIRE,28, bool DESFire_EnableRandomID(int CryptoEnv))
-        //TODO: SYSFUNC(API_DESFIRE,29, bool DESFire_SetDefaultKey(int CryptoEnv, const byte* Key, int KeyByteCount, byte KeyVersion))
-        //TODO: SYSFUNC(API_DESFIRE,30, bool DESFire_SetATS(int CryptoEnv, const byte* ATS, int Length))
-        //TODO: SYSFUNC(API_DESFIRE,31, bool DESFire_CreateRecordFile(int CryptoEnv, int FileNo, const TDESFireFileSettings* FileSettings))
-        //TODO: SYSFUNC(API_DESFIRE,32, bool DESFire_ReadRecords(int CryptoEnv, int FileNo, byte* RecordData, int* RecDataByteCnt, int Offset, int NumberOfRecords, int RecordSize, int CommSet))
-        //TODO: SYSFUNC(API_DESFIRE,33, bool DESFire_WriteRecord(int CryptoEnv, int FileNo, const byte* Data, int Offset, int Length, int CommSet))
-        //TODO: SYSFUNC(API_DESFIRE,34, bool DESFire_ClearRecordFile(int CryptoEnv, int FileNo))
+        /// <summary>
+        /// Change a DESFire file's communication settings and access rights.
+        /// </summary>
+        /// <param name="fileNo"></param>
+        /// <param name="newCommSet"><see cref="EncryptionMode"/></param>
+        /// <param name="oldAccessRights"><see cref="DESFireFileAccessRights"/></param>
+        /// <param name="newAccessRights"><see cref="DESFireFileAccessRights"/></param>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_ChangeFileSettingsAsync(byte fileNo, EncryptionMode newCommSet, DESFireFileAccessRights oldAccessRights, DESFireFileAccessRights newAccessRights)
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CHANGEFILESETTINGS, CRYPTO_ENV, fileNo, (byte)newCommSet };
 
+            UInt16 oldAr = 0;
+            oldAr |= oldAccessRights.ReadKeyNo;
+            oldAr |= (UInt16)(oldAccessRights.WriteKeyNo << 4);
+            oldAr |= (UInt16)(oldAccessRights.ReadWriteKeyNo << 8);
+            oldAr |= (UInt16)(oldAccessRights.ChangeKeyNo << 12);
+
+            UInt16 newAr = 0;
+            newAr |= newAccessRights.ReadKeyNo;
+            newAr |= (UInt16)(newAccessRights.WriteKeyNo << 4);
+            newAr |= (UInt16)(newAccessRights.ReadWriteKeyNo << 8);
+            newAr |= (UInt16)(newAccessRights.ChangeKeyNo << 12);
+
+            bytes.AddUInt16(oldAr);
+            bytes.AddUInt16(newAr);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Disable FormatCard for the currently selected DESFire card.
+        /// </summary>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_DisableFormatCardAsync()
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_DISABLEFORMATCARD, CRYPTO_ENV };
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Enable random UID (RandomID) for the currently selected DESFire card.
+        /// </summary>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_EnableRandomIdAsync()
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_ENABLERANDOMID, CRYPTO_ENV };
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Set the default DESFire key (master key) and its version.
+        /// </summary>
+        /// <param name="key">Key material (variable length)</param>
+        /// <param name="keyVersion">Key version byte</param>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_SetDefaultKeyAsync(byte[] key, byte keyVersion)
+        {
+            if (key == null) throw new ArgumentNullException(nameof(key));
+            if (key.Length > 0xFF) throw new ArgumentOutOfRangeException(nameof(key), "Key is too long for a Var Byte Array (max 255).");
+
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_SETDEFAULTKEY, CRYPTO_ENV, (byte)key.Length };
+
+            bytes.AddRange(key);
+            bytes.Add(keyVersion);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Set the ATS (Answer To Select) for the currently selected DESFire card.
+        /// </summary>
+        /// <param name="ats">ATS bytes</param>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_SetAtsAsync(byte[] ats)
+        {
+            if (ats == null) throw new ArgumentNullException(nameof(ats));
+            if (ats.Length > 0xFF) throw new ArgumentOutOfRangeException(nameof(ats), "ATS is too long for a Var Byte Array (max 255).");
+
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_SETATS, CRYPTO_ENV, (byte)ats.Length };
+
+            bytes.AddRange(ats);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Create a record file on a DESFire.
+        /// </summary>
+        /// <param name="fileNo"></param>
+        /// <param name="fileType"><see cref="DESFireFileType"/> (Linear or Cyclic record file)</param>
+        /// <param name="mode"><see cref="EncryptionMode"/></param>
+        /// <param name="accessRights"><see cref="DESFireFileAccessRights"/></param>
+        /// <param name="recordSize"></param>
+        /// <param name="maxNumberOfRecords"></param>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_CreateRecordFileAsync(byte fileNo, DESFireFileType fileType, EncryptionMode mode, DESFireFileAccessRights accessRights, UInt32 recordSize, UInt32 maxNumberOfRecords)
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CREATERECORDFILE, CRYPTO_ENV, fileNo, (byte)fileType, (byte)mode };
+
+            UInt16 fileAccessRights = 0;
+
+            fileAccessRights |= accessRights.ReadKeyNo;
+            fileAccessRights |= (UInt16)(accessRights.WriteKeyNo << 4);
+            fileAccessRights |= (UInt16)(accessRights.ReadWriteKeyNo << 8);
+            fileAccessRights |= (UInt16)(accessRights.ChangeKeyNo << 12);
+
+            bytes.AddUInt16(fileAccessRights);
+            bytes.AddUInt32(recordSize);
+            bytes.AddUInt32(maxNumberOfRecords);
+
+            // appending 0's (8 bytes) per Simple Protocol
+            bytes.AddRange(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 });
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Read records from a DESFire record file.
+        /// </summary>
+        /// <param name="fileNo"></param>
+        /// <param name="offset"></param>
+        /// <param name="numberOfRecords"></param>
+        /// <param name="recordSize"></param>
+        /// <param name="mode"><see cref="EncryptionMode"/></param>
+        /// <returns>Record data</returns>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<byte[]> MifareDesfire_ReadRecordsAsync(byte fileNo, UInt16 offset, byte numberOfRecords, byte recordSize, EncryptionMode mode)
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_READRECORDS, CRYPTO_ENV, fileNo };
+
+            bytes.AddUInt16(offset);
+            bytes.Add(numberOfRecords);
+            bytes.Add(recordSize);
+            bytes.Add((byte)mode);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (success)
+            {
+                return parser.ParseVarByteArray();
+            }
+
+            throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+        }
+
+        /// <summary>
+        /// Write a record to a DESFire record file.
+        /// </summary>
+        /// <param name="fileNo"></param>
+        /// <param name="offset"></param>
+        /// <param name="data"></param>
+        /// <param name="mode"><see cref="EncryptionMode"/></param>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_WriteRecordAsync(byte fileNo, UInt16 offset, byte[] data, EncryptionMode mode)
+        {
+            if (data == null) throw new ArgumentNullException(nameof(data));
+            if (data.Length > 0xFF) throw new ArgumentOutOfRangeException(nameof(data), "Data is too long for a Var Byte Array (max 255).");
+
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_WRITERECORD, CRYPTO_ENV, fileNo };
+
+            bytes.AddUInt16(offset);
+            bytes.Add((byte)data.Length);
+            bytes.AddRange(data);
+            bytes.Add((byte)mode);
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
+
+        /// <summary>
+        /// Clear a DESFire record file.
+        /// </summary>
+        /// <param name="fileNo"></param>
+        /// <exception cref="ReaderException"></exception>
+        public async Task MifareDesfire_ClearRecordFileAsync(byte fileNo)
+        {
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CLEARRECORDFILE, CRYPTO_ENV, fileNo };
+
+            var parser = await CallFunctionAsync(bytes.ToArray());
+            var success = parser.ParseBool();
+
+            if (!success)
+            {
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            }
+        }
         #endregion
 
         #region API_ISO14443 / ISO14443 Transparent Transponder Access Functions
