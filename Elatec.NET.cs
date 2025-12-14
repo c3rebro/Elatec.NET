@@ -1450,31 +1450,64 @@ public async Task<byte?> MifareUltralightEV1_CheckTearingEventAsync(byte counter
         /// <param name="comSet">byte: 0 = Plain, 1 = CMAC, 2 = Encrypted</param>
         /// <returns>byte[] of data</returns>
         /// <exception cref="ReaderException"></exception>
-        public async Task<byte[]> MifareDesfire_ReadDataAsync(byte fileNo, int length, EncryptionMode mode)
+        public Task<byte[]> MifareDesfire_ReadDataAsync(byte fileNo, int length, EncryptionMode mode)
         {
+            // Simple Protocol: DESFire_ReadData [0F08][Byte: CryptoEnv][Byte: FileNo][UInt16: Offset][Byte: Length][Byte: CommSet]
+            // Length is a single byte, so reads > 255 bytes must be segmented.
+            return MifareDesfire_ReadDataAsync(fileNo, 0, length, mode);
+        }
+
+        /// <summary>
+        /// Read out Data on a DESFire (Simple Protocol: DESFire_ReadData / 0x0F08)
+        /// </summary>
+        /// <param name="fileNo">byte: filenumber</param>
+        /// <param name="offset">UInt16: start offset</param>
+        /// <param name="length">int: number of bytes to read</param>
+        /// <param name="mode">byte: 0 = Plain, 1 = CMAC, 2 = Encrypted</param>
+        /// <returns>byte[] of data</returns>
+        /// <remarks>
+        /// Simple Protocol limits Offset to UInt16 and Length to one byte (max 255). This method transparently
+        /// segments reads larger than 255 bytes by issuing multiple DESFire_ReadData calls with increasing offsets.
+        /// </remarks>
+        /// <exception cref="ReaderException"></exception>
+        public async Task<byte[]> MifareDesfire_ReadDataAsync(byte fileNo, ushort offset, int length, EncryptionMode mode)
+        {
+            if (length < 0) throw new ArgumentOutOfRangeException(nameof(length));
+            if (length == 0) return new byte[0];
+
+            // Offset is UInt16 in Simple Protocol, therefore offset + length must stay within 0..65535.
+            if ((uint)offset + (uint)length > 0x10000)
+                throw new ArgumentOutOfRangeException(nameof(length), "Simple Protocol uses a 16-bit offset; offset + length must be <= 65536.");
+
             var data = new byte[length];
-            var iterations = (length / 0xFF) == 0 ? 1 : (length / 0xFF); // more than one byte?
-            var dataLengthToRead = length;
+            var remaining = length;
+            var dstIndex = 0;
+            var currentOffset = offset;
 
-            for (var i = 0; i < iterations; i++)
+            while (remaining > 0)
             {
-                List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_READDATA, CRYPTO_ENV, fileNo };
+                var chunkLen = (byte)Math.Min(0xFF, remaining);
 
-                bytes.AddUInt16((UInt16)(i * 0xFF));
-                bytes.Add((byte)(dataLengthToRead >= 0xFF ? 0xFF : length));
+                List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_READDATA, CRYPTO_ENV, fileNo };
+                bytes.AddUInt16(currentOffset);
+                bytes.Add(chunkLen);
                 bytes.Add((byte)mode);
 
                 var parser = await CallFunctionAsync(bytes.ToArray());
                 var success = parser.ParseBool();
 
-                if (success)
-                {
-                    Array.Copy(parser.ParseVarByteArray(), 0, data, (i * 0xFF), (dataLengthToRead >= 0xFF ? 0xFF : length));
-                }
-                else
-                {
+                if (!success)
                     throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
-                }
+
+                var chunk = parser.ParseVarByteArray();
+                if (chunk.Length != chunkLen)
+                    throw new ReaderException("Unexpected DESFire_ReadData length. Expected " + chunkLen + " bytes, got " + chunk.Length + " bytes.", null);
+
+                Array.Copy(chunk, 0, data, dstIndex, chunkLen);
+
+                dstIndex += chunkLen;
+                remaining -= chunkLen;
+                currentOffset = (ushort)(currentOffset + chunkLen);
             }
 
             return data;
@@ -1488,38 +1521,62 @@ public async Task<byte?> MifareUltralightEV1_CheckTearingEventAsync(byte counter
         /// <param name="mode"><see cref="EncryptionMode"/></param>
         /// <returns></returns>
         /// <exception cref="ReaderException"></exception>
-        public async Task MifareDesfire_WriteDataAsync(byte fileNo, byte[] data, EncryptionMode mode)
+        public Task MifareDesfire_WriteDataAsync(byte fileNo, byte[] data, EncryptionMode mode)
         {
-            var iterations = (data.Length / 0xFF) == 0 ? 1 : (data.Length / 0xFF); // more than one byte?
-            var lengthToWrite = data.Length;
-            var success = false;
+            // Simple Protocol: DESFire_WriteData [0F09][Byte: CryptoEnv][Byte: FileNo][UInt16: Offset][Byte Array(Var): Data][Byte: CommSet]
+            // The 'Data' field is length-prefixed (one byte), so writes > 255 bytes must be segmented.
+            return MifareDesfire_WriteDataAsync(fileNo, 0, data, mode);
+        }
 
-            for (var i = 0; i < iterations; i++)
+        /// <summary>
+        /// Write Data to a DESFire (Simple Protocol: DESFire_WriteData / 0x0F09)
+        /// </summary>
+        /// <param name="fileNo">byte: filenumber</param>
+        /// <param name="offset">UInt16: start offset</param>
+        /// <param name="data">byte[]: data to write</param>
+        /// <param name="mode">byte: 0 = Plain, 1 = CMAC, 3 = Fully Encrypted</param>
+        /// <remarks>
+        /// In Simple Protocol the data payload is a Byte Array(Var), i.e. it starts with a single length byte.
+        /// Therefore each command can transport at most 255 data bytes. This method transparently segments larger
+        /// payloads by issuing multiple DESFire_WriteData calls with increasing offsets.
+        /// </remarks>
+        public async Task MifareDesfire_WriteDataAsync(byte fileNo, ushort offset, byte[] data, EncryptionMode mode)
+        {
+            if (data == null) throw new ArgumentNullException(nameof(data));
+            if (data.Length == 0) return;
+
+            // Offset is UInt16 in Simple Protocol, therefore offset + data.Length must stay within 0..65535.
+            if ((uint)offset + (uint)data.Length > 0x10000)
+                throw new ArgumentOutOfRangeException(nameof(data), "Simple Protocol uses a 16-bit offset; offset + data.Length must be <= 65536.");
+
+            var remaining = data.Length;
+            var srcIndex = 0;
+            var currentOffset = offset;
+
+            while (remaining > 0)
             {
+                var chunkLen = Math.Min(0xFF, remaining);
+
+                // Build: [API][FUNC][CryptoEnv][FileNo][UInt16 Offset][VarLen][Data...][CommSet]
                 List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_WRITEDATA, CRYPTO_ENV, fileNo };
+                bytes.AddUInt16(currentOffset);
+                bytes.Add((byte)chunkLen); // Var array length byte
 
-                lengthToWrite = lengthToWrite >= 0xFF ? 0xFF : lengthToWrite; // more data?
+                var chunk = new byte[chunkLen];
+                Array.Copy(data, srcIndex, chunk, 0, chunkLen);
+                bytes.AddRange(chunk);
 
-                var dataToWrite = new byte[(lengthToWrite >= 0xFF ? 0xFF : lengthToWrite)];
-                Array.Copy(data, (i * 0xFF), dataToWrite, 0, (lengthToWrite >= 0xFF ? 0xFF : lengthToWrite));
-                
-                bytes.AddUInt16((UInt16)(i * 0xFF));
-                bytes.Add((byte)lengthToWrite);
-                bytes.AddRange(data);
                 bytes.Add((byte)mode);
 
                 var parser = await CallFunctionAsync(bytes.ToArray());
-                success = parser.ParseBool();
+                var success = parser.ParseBool();
 
                 if (!success)
-                {
                     throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
-                }
-            }
 
-            if (!success)
-            {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                srcIndex += chunkLen;
+                remaining -= chunkLen;
+                currentOffset = (ushort)(currentOffset + chunkLen);
             }
         }
 

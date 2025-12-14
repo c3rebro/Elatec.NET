@@ -21,12 +21,18 @@
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<RepositoryUrl>$(Projekt-URL)</RepositoryUrl>
 	<PackageTags>rfid; elatec; twn4</PackageTags>
-	<PackageReleaseNotes>v0.4.2 Fix: Error in signleton init leads to stale comport
+	<PackageReleaseNotes>v0.5.0 Added: Implemented missing MIFARE DESFire "Simple Protocol" methods (value ops, record ops, transaction ops, card/key utils, file settings, ATS/default key/random ID/disable-format).
+      Added: Implemented missing MIFARE Classic value block operations (read/write/inc/dec/copy).
+      Added: Implemented missing MIFARE Ultralight / Ultralight C / Ultralight EV1 functions (write page, auth/SAM ops, counters, version/signature, pwd auth, tearing event).
+      Changed: Cleaned up API_RF (named constants, overloads for SearchTag maxIdBytes and raw tag-type masks, helper for tag-type bitmask computation).
+      Fixed: Reviewed/adjusted DESFire ReadData/WriteData to match Simple Protocol encoding and correct chunking (var-length Data in WriteData; explicit Length in ReadData).
+      Docs: Updated XML documentation and comments to align with protocol specification.
+v0.4.2 Fix: Error in signleton init leads to stale comport
 v0.4.1 Fix: Missing CryptoMode byte in WriteDataAsync()
 v0.4 Added DisconnectAsync()
 v0.3 Incompatible changes: changed bytepattern of CardType
 v0.2 take legic capable reader "specialties" into account. See Readme.MD for further details</PackageReleaseNotes>
-	<AssemblyVersion>0.4.2</AssemblyVersion>
+	<AssemblyVersion>0.5.0</AssemblyVersion>
 	<FileVersion>$(AssemblyVersion)</FileVersion>
 	<PackageLicenseFile>LICENSE</PackageLicenseFile>
   <IncludeContentInPack>true</IncludeContentInPack>
