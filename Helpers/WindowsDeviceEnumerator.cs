@@ -63,7 +63,7 @@ namespace Elatec.NET
                     return devices;
                 }
 
-                IEnumerable<object> registryValues = registryKey.GetValueNames().Select(registryKey.GetValue);
+                IEnumerable<object> registryValues = registryKey.GetValueNames().Select(name => registryKey.GetValue(name));
                 devices.AddRange(FilterDevices(registryValues, devicePath));
             }
             finally

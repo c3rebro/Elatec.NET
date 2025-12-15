@@ -81,6 +81,15 @@ namespace Elatec.NET
             return result;
         }
 
+        /// <summary>
+        /// Parse a variable length byte array that is prefixed with its length.
+        /// </summary>
+        /// <returns>The extracted byte array.</returns>
+        public byte[] ParseFlexByteArray()
+        {
+            return ParseVarByteArray();
+        }
+
         public byte[] ParseFixByteArray(byte num)
         {
             if (ParseIdx >= Bytes.Count - num + 1)

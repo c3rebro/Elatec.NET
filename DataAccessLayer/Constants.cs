@@ -471,6 +471,35 @@ namespace Elatec.NET
         OpenDrain = 1
     }
 
+    /// <summary>
+    /// Mirrors the pull configuration options used by GPIO functions.
+    /// </summary>
+    public enum PullResistor : byte
+    {
+        None = GpioPullType.NoPull,
+        PullUp = GpioPullType.PullUp,
+        PullDown = GpioPullType.PullDown
+    }
+
+    /// <summary>
+    /// Mirrors the GPIO output driver configuration used by GPIO functions.
+    /// </summary>
+    public enum OutputType : byte
+    {
+        PushPull = GpioOutputType.PushPull,
+        OpenDrain = GpioOutputType.OpenDrain
+    }
+
+    /// <summary>
+    /// UART0 operating modes supported by <see cref="TWN4ReaderDevice.SetSerialModeAsync"/>.
+    /// </summary>
+    public enum SerialMode : byte
+    {
+        Uart = 0,
+        Rs232 = 1,
+        Rs485 = 2,
+    }
+
     #endregion
 
     /// <summary>

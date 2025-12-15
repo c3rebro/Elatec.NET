@@ -14,6 +14,11 @@ namespace Elatec.NET
         /// This function delivers the ATS (Answer To Select) of a ISO14443A layer 4 transponder.
         /// </summary>
         /// <returns>The ATS if one is found, otherwise null.</returns>
+        /// <remarks>
+        ///     Legic-capable TWN4 readers internally trigger the RATS/ATS handshake as part of <see cref="SearchTagAsync"/>,
+        ///     so attempting to perform a manual RATS over <see cref="ISO14443_3_TdxAsync(byte[], ushort)"/> may fail.
+        ///     This method surfaces the cached ATS value without requiring that low-level exchange.
+        /// </remarks>
         public async Task<byte[]> ISO14443A_GetAtsAsync()
         {
             var parser = await CallFunctionAsync(new byte[] { API_ISO14443, 0, /* maxBytes */ byte.MaxValue });
@@ -184,10 +189,16 @@ namespace Elatec.NET
 
         /// <summary>
         /// Use this function to select one of the discovered transponders for further operations.
-        /// IMPORTANT: This does not work on Legic capable TWN4 Mutitec Readers. Use SearchTag instead. 
+        /// IMPORTANT: This does not work on Legic capable TWN4 Mutitec Readers. Use SearchTag instead.
         /// </summary>
         /// <param name="uid">Specify the UID of the transponder to be selected.</param>
         /// <returns>If the operation was successful, the return value is true, otherwise it is false.</returns>
+        /// <remarks>
+        ///     Legic variants already perform card selection within the Legic co-processor; issuing this call after
+        ///     <see cref="SearchTagAsync"/> will therefore return false even though a tag is present. Downstream
+        ///     operations (e.g., <see cref="ISO14443A_GetAtsAsync"/>) should rely on the discovery results instead of
+        ///     explicit selection on those devices.
+        /// </remarks>
         public async Task<bool> ISO14443A_SelectTagAsync(byte[] uid)
         {
             List<byte> bytes = new List<byte> { API_ISO14443, 9 };
@@ -213,8 +224,6 @@ namespace Elatec.NET
             var result = parser.ParseBool();
             return result;
         }
-
-        #endregion
 
         #endregion
 

@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
-using Elatec.NET.Interfaces;
 
 namespace Elatec.NET.Tests
 {
@@ -34,75 +31,6 @@ namespace Elatec.NET.Tests
 
             Assert.True(result);
             Assert.False(fakeTransport.IsOpen);
-        }
-    }
-
-    /// <summary>
-    /// Minimal fake transport used to validate transport interactions without hardware.
-    /// </summary>
-    public class FakeReaderTransport : IReaderTransport
-    {
-        public FakeReaderTransport(string portName)
-        {
-            PortName = portName;
-        }
-
-        public string PortName { get; }
-
-        public int ReadTimeout { get; set; }
-
-        public int WriteTimeout { get; set; }
-
-        public bool IsOpen { get; private set; }
-
-        public bool ConnectCalled { get; private set; }
-
-        public Queue<string> Responses { get; } = new Queue<string>();
-
-        public List<string> WrittenLines { get; } = new List<string>();
-
-        public event EventHandler<Exception> ErrorReceived;
-
-        public Task ConnectAsync()
-        {
-            ConnectCalled = true;
-            IsOpen = true;
-            return Task.CompletedTask;
-        }
-
-        public Task DisconnectAsync()
-        {
-            IsOpen = false;
-            return Task.CompletedTask;
-        }
-
-        public void DiscardInBuffer()
-        {
-        }
-
-        public void DiscardOutBuffer()
-        {
-        }
-
-        public Task<string> ReadLineAsync()
-        {
-            if (Responses.Count == 0)
-            {
-                throw new InvalidOperationException("No responses configured.");
-            }
-
-            return Task.FromResult(Responses.Dequeue());
-        }
-
-        public Task WriteLineAsync(string data)
-        {
-            WrittenLines.Add(data);
-            return Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-            IsOpen = false;
         }
     }
 }
