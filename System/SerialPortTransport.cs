@@ -4,7 +4,7 @@ using System.IO.Ports;
 using System.Threading.Tasks;
 using Elatec.NET.Interfaces;
 
-namespace Elatec.NET
+namespace Elatec.NET.System
 {
     /// <summary>
     /// Serial port based implementation of <see cref="IReaderTransport"/>.

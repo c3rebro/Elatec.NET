@@ -1,6 +1,6 @@
 ﻿using Elatec.NET.Helpers.ByteArrayHelper.Extensions;
 
-namespace Elatec.NET.Cards
+namespace Elatec.NET.Models.Cards
 {
     public class BaseChip
     {
@@ -8,7 +8,7 @@ namespace Elatec.NET.Cards
         public byte[] UID { get; set; }
 
         public BaseChip()
-        {          
+        {
         }
 
         public BaseChip(ChipType chipType, byte[] uid)

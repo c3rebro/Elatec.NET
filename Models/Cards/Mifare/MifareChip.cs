@@ -1,4 +1,6 @@
-﻿namespace Elatec.NET.Cards.Mifare
+﻿using Elatec.NET.Models.Cards;
+
+namespace Elatec.NET.Models.Cards.Mifare
 {
     /// <summary>
     /// A MIFARE chip.
