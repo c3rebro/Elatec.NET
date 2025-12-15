@@ -10,6 +10,7 @@ using Elatec.NET.Helpers.ByteArrayHelper.Extensions;
 using System.IO;
 using Elatec.NET.Cards;
 using Elatec.NET.Cards.Mifare;
+using Elatec.NET.System;
 
 /*
 * Elatec.NET is a C# library to easily Talk to Elatec's TWN4 Devices
@@ -68,7 +69,7 @@ namespace Elatec.NET
         public TWN4ReaderDevice(string portName, Func<string, IReaderTransport> transportFactory = null)
         {
             PortName = portName;
-            _transportFactory = transportFactory ?? (name => new SerialPortTransport(name));
+            _transportFactory = transportFactory ?? new Func<string, IReaderTransport>(name => new SerialPortTransport(name));
         }
 
         /// <summary>
