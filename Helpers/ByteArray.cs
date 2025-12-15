@@ -368,7 +368,7 @@ namespace Elatec.NET.Helpers.ByteArrayHelper
                 {
                     if (!(hex.Length > 2 || hex.Length <= 0))
                     {
-                        newByte = byte.Parse(hex, System.Globalization.NumberStyles.HexNumber);
+                        newByte = byte.Parse(hex, global::System.Globalization.NumberStyles.HexNumber);
                     }
                 }
                 catch

@@ -53,7 +53,7 @@ namespace Elatec.NET.Tests
 
         private static string EncodeAsciiResponse(string value)
         {
-            var bytes = System.Text.Encoding.ASCII.GetBytes(value);
+            var bytes = global::System.Text.Encoding.ASCII.GetBytes(value);
             var response = new byte[bytes.Length + 2];
             response[0] = 0x00; // ResponseError.None
             response[1] = (byte)bytes.Length;
@@ -63,7 +63,7 @@ namespace Elatec.NET.Tests
 
         private static string BytesToHex(byte[] bytes)
         {
-            var hex = new System.Text.StringBuilder();
+            var hex = new global::System.Text.StringBuilder();
             foreach (var value in bytes)
             {
                 hex.Append(value.ToString("X2"));
