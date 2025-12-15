@@ -1700,7 +1700,7 @@ public async Task<byte?> MifareUltralightEV1_CheckTearingEventAsync(byte counter
         /// <exception cref="ReaderException"></exception>
         public async Task MifareDesfire_FormatTagAsync()
         {
-            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_FORMATTAG, CRYPTO_ENV, DESFIRE_AUTHMODE_COMPATIBLE };
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_FORMATTAG, CRYPTO_ENV };
 
             var parser = await CallFunctionAsync(bytes.ToArray());
             var success = parser.ParseBool();
