@@ -127,13 +127,13 @@ namespace Elatec.NET.Cards.Mifare
     {
         private DESFireAppAccessRights accessRights;
         private DESFireKeyType keyType;
-        private UInt32 numberOfKeys;
+        private uint numberOfKeys;
 
         public DESFireAppAccessRights AccessRights
         {
             get => accessRights; set => accessRights = value;
         }
-        public UInt32 NumberOfKeys
+        public uint NumberOfKeys
         {
             get => numberOfKeys; set => numberOfKeys = value;
         }
@@ -216,8 +216,8 @@ namespace Elatec.NET.Cards.Mifare
 
     public class DataFileSetting
     {
-        private UInt32 fileSize;
-        public UInt32 FileSize
+        private uint fileSize;
+        public uint FileSize
         {
             get => fileSize; set => fileSize = value;
         }
@@ -225,19 +225,19 @@ namespace Elatec.NET.Cards.Mifare
 
     public class RecordFileSetting
     {
-        private UInt32 recordSize;
-        private UInt32 maxNumberOfRecords;
-        private UInt32 currentNumberOfRecords;
+        private uint recordSize;
+        private uint maxNumberOfRecords;
+        private uint currentNumberOfRecords;
 
-        public UInt32 RecordSize
+        public uint RecordSize
         {
             get => recordSize; set => recordSize = value;
         }
-        public UInt32 MaxNumberOfRecords
+        public uint MaxNumberOfRecords
         {
             get => maxNumberOfRecords; set => maxNumberOfRecords = value;
         }
-        public UInt32 CurrentNumberOfRecords
+        public uint CurrentNumberOfRecords
         {
             get => currentNumberOfRecords; set => currentNumberOfRecords = value;
         }
@@ -245,23 +245,23 @@ namespace Elatec.NET.Cards.Mifare
 
     public class ValueFileSetting
     {
-        private UInt32 upperLimit;
-        private UInt32 lowerLimit;
-        private UInt32 limitedCreditValue;
+        private uint upperLimit;
+        private uint lowerLimit;
+        private uint limitedCreditValue;
 
         private byte limitedCreditEnabled;
         private byte freeGetValue;
         private byte rFU;
 
-        public UInt32 UpperLimit
+        public uint UpperLimit
         {
             get => upperLimit; set => upperLimit = value;
         }
-        public UInt32 LowerLimit
+        public uint LowerLimit
         {
             get => lowerLimit; set => lowerLimit = value;
         }
-        public UInt32 LimitedCreditValue
+        public uint LimitedCreditValue
         {
             get => limitedCreditValue; set => limitedCreditValue = value;
         }

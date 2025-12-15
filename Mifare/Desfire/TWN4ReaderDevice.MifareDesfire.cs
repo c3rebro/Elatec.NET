@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Elatec.NET.Cards.Mifare;
 using Elatec.NET.Helpers.ByteArrayHelper;
 using Elatec.NET.Helpers.ByteArrayHelper.Extensions;
-using Elatec.NET.Models.Cards.Mifare;
 
 namespace Elatec.NET
 {

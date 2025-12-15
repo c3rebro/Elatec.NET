@@ -5,11 +5,11 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
-using Elatec.NET.Cards;
-using Elatec.NET.Cards.Mifare;
 using Elatec.NET.Interfaces;
 using Elatec.NET.Helpers.ByteArrayHelper.Extensions;
 using System.IO;
+using Elatec.NET.Cards;
+using Elatec.NET.Cards.Mifare;
 
 /*
 * Elatec.NET is a C# library to easily Talk to Elatec's TWN4 Devices

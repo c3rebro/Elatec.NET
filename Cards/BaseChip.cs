@@ -1,6 +1,6 @@
 ﻿using Elatec.NET.Helpers.ByteArrayHelper.Extensions;
 
-namespace Elatec.NET.Models.Cards
+namespace Elatec.NET.Cards
 {
     public class BaseChip
     {
