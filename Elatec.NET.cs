@@ -1,5 +1,4 @@
 ﻿using System;
-using System.IO.Ports;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Elatec.NET.Cards;
 using Elatec.NET.Cards.Mifare;
+using Elatec.NET.Interfaces;
 using Elatec.NET.Helpers.ByteArrayHelper.Extensions;
 using System.IO;
 
@@ -41,7 +41,8 @@ namespace Elatec.NET
 
         private static readonly object syncRoot = new object();
         private static List<TWN4ReaderDevice> instance;
-        private SerialPort twnPort;
+        private readonly Func<string, IReaderTransport> _transportFactory;
+        private IReaderTransport _transport;
 
         public static List<TWN4ReaderDevice> Instance
         {
@@ -64,15 +65,25 @@ namespace Elatec.NET
         /// <summary>
         /// 
         /// </summary>
-        public TWN4ReaderDevice(string portName)
+        public TWN4ReaderDevice(string portName, Func<string, IReaderTransport> transportFactory = null)
         {
             PortName = portName;
+            _transportFactory = transportFactory ?? (name => new SerialPortTransport(name));
         }
 
         /// <summary>
         /// 
         /// </summary>
         public static readonly int TIMEOUT = 20;
+
+        private void EnsureTransport()
+        {
+            if (_transport == null)
+            {
+                _transport = _transportFactory(PortName) ?? throw new InvalidOperationException("Transport factory returned null.");
+                _transport.ErrorReceived += TXRXErr;
+            }
+        }
 
         #region High Level APIs
 
@@ -578,50 +589,37 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task<bool> ConnectAsync()
         {
-            await Task.Run(() =>
+            try
             {
-                try
+                EnsureTransport();
+
+                // NFC functions are known to take less than 2 second to execute.
+                _transport.ReadTimeout = 2000;
+                _transport.WriteTimeout = 2000;
+
+                // Open TWN4 com port
+                await _transport.ConnectAsync().ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                //Port Busy? Try Again
+                if (e is UnauthorizedAccessException)
                 {
-                    if (twnPort == null)
+                    if (_transport != null && _transport.IsOpen)
                     {
-                        twnPort = new SerialPort();
+                        await _transport.DisconnectAsync().ConfigureAwait(false);
                     }
 
-                    // Initialize serial port
-                    twnPort.PortName = PortName;
-                    twnPort.BaudRate = 9600;
-                    twnPort.DataBits = 8;
-                    twnPort.StopBits = System.IO.Ports.StopBits.One;
-                    twnPort.Parity = System.IO.Ports.Parity.None;
-                    // NFC functions are known to take less than 2 second to execute.
-                    twnPort.ReadTimeout = 2000;
-                    twnPort.WriteTimeout = 2000;
-                    twnPort.NewLine = "\r";
-                    twnPort.ErrorReceived += TXRXErr;
-                    // Open TWN4 com port
-                    twnPort.Open();
+                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotOpen), null);
                 }
-                catch (Exception e)
+
+                if (e is IOException)
                 {
-                    //Port Busy? Try Again
-                    if (e is UnauthorizedAccessException)
-                    {
-                        if (twnPort.IsOpen)
-                        {
-                            twnPort.Close();
-                        }
-
-                        throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotOpen), null);
-                    }
-
-                    if (e is IOException)
-                    {
-                        instance = DeviceManager.GetAvailableReaders();
-                    }
-
-                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotInit), null);
+                    instance = DeviceManager.GetAvailableReaders();
                 }
-            }).ConfigureAwait(false);
+
+                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotInit), null);
+            }
 
             var version = await GetVersionStringAsync();
             return version.StartsWith("TWN4");
@@ -633,43 +631,38 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task<bool> DisconnectAsync()
         {
-            var wasDisconnected = await Task.Run(() =>
+            try
             {
-                try
+                if (_transport == null)
                 {
-                    if (twnPort == null)
-                    {
-                        return true;
-                    }
-
-                    if (twnPort.IsOpen)
-                    {
-                        twnPort.DiscardInBuffer();
-                        twnPort.DiscardOutBuffer();
-                        twnPort.Close();
-                        return true;
-                    }
-
                     return true;
                 }
-                catch (Exception e)
+
+                if (_transport.IsOpen)
                 {
-                    //Port Busy? Try Again
-                    if (e is UnauthorizedAccessException)
-                    {
-                        throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotOpen), null);
-                    }
-
-                    if (e is IOException)
-                    {
-                        throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotInit), null);
-                    }
-
-                    throw;
+                    _transport.DiscardInBuffer();
+                    _transport.DiscardOutBuffer();
+                    await _transport.DisconnectAsync().ConfigureAwait(false);
+                    return true;
                 }
-            }).ConfigureAwait(false);
 
-            return wasDisconnected;
+                return true;
+            }
+            catch (Exception e)
+            {
+                //Port Busy? Try Again
+                if (e is UnauthorizedAccessException)
+                {
+                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotOpen), null);
+                }
+
+                if (e is IOException)
+                {
+                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotInit), null);
+                }
+
+                throw;
+            }
         }
 
         #region Tools for Simple Protocol
@@ -789,32 +782,23 @@ namespace Elatec.NET
         {
             try
             {
-                byte[] ret = null;
+                EnsureTransport();
 
-                return await Task.Run(() => 
+                if (!_transport.IsOpen)
                 {
-                    if (!twnPort.IsOpen)
-                    {
-                        twnPort.Open();
-                    }
+                    await _transport.ConnectAsync().ConfigureAwait(false);
+                }
 
-                    else if (twnPort.IsOpen)
-                    {
-                        // Discard com port inbuffer
-                        twnPort.DiscardInBuffer();
+                // Discard com port inbuffer
+                _transport.DiscardInBuffer();
 
-                        // Generate simple protocol string and send command
-                        twnPort.WriteLine(GetPRSfromByteArray(CMD));
+                // Generate simple protocol string and send command
+                await _transport.WriteLineAsync(GetPRSfromByteArray(CMD)).ConfigureAwait(false);
 
-                        // Read simple protocoll string and convert to byte array
-                        ret = GetByteArrayfromPRS(twnPort.ReadLine());
+                // Read simple protocoll string and convert to byte array
+                var rawResponse = await _transport.ReadLineAsync().ConfigureAwait(false);
+                return GetByteArrayfromPRS(rawResponse);
 
-                        return ret;
-                    }
-
-                    return ret;
-
-                }).ConfigureAwait(false);
             }
 
             catch
@@ -829,7 +813,7 @@ namespace Elatec.NET
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void TXRXErr(object sender, EventArgs e)
+        private void TXRXErr(object sender, Exception e)
         {
             throw new ReaderException("Call was not successfull, error " + e.ToString(), null);
         }
@@ -847,12 +831,7 @@ namespace Elatec.NET
         {
             get
             {
-                if (twnPort != null)
-                {
-                    return twnPort.IsOpen;
-                }
-
-                return false;
+                return _transport != null && _transport.IsOpen;
             }
         }
 
@@ -875,15 +854,15 @@ namespace Elatec.NET
                 if (disposing)
                 {
                     // Dispose any managed objects
-                    if (twnPort != null)
+                    if (_transport != null)
                     {
-                        if (twnPort.IsOpen)
+                        if (_transport.IsOpen)
                         {
-                            twnPort.Close();
+                            _transport.DisconnectAsync().GetAwaiter().GetResult();
                         }
 
-                        twnPort.Dispose();
-                        twnPort = null;
+                        _transport.Dispose();
+                        _transport = null;
                     }
                 }
 
