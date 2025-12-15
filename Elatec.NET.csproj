@@ -89,6 +89,7 @@ v0.2 take legic capable reader "specialties" into account. See Readme.MD for fur
 
   <ItemGroup>
     <Compile Remove="Elatec.NET.Tests/**/*.cs" />
+    <Compile Remove="tests/**/*.cs" />
   </ItemGroup>
 
 </Project>

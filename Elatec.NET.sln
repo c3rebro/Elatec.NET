@@ -5,7 +5,7 @@ VisualStudioVersion = 17.7.34221.43
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Elatec.NET", "Elatec.NET.csproj", "{53FBD2F3-638E-4892-9F09-9A372C8F76D2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Elatec.NET.Tests", "Elatec.NET.Tests\\Elatec.NET.Tests.csproj", "{1767A7E5-6C9A-46AC-A6FD-B07080AC0CE3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Elatec.NET.Tests", "tests\\Elatec.NET.Tests\\Elatec.NET.Tests.csproj", "{1767A7E5-6C9A-46AC-A6FD-B07080AC0CE3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
