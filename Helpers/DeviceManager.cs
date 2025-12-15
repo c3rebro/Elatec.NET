@@ -1,85 +1,46 @@
-﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using Elatec.NET.Interfaces;
 
 namespace Elatec.NET
 {
     public class DeviceManager
     {
+        private static IDeviceEnumerator _deviceEnumerator = CreatePlatformEnumerator();
 
-        public static readonly string VendorIdElatec = "09D8";
-        public static readonly string ProductIdTWN4MultiTech2 = "0420";
-        public static readonly string ServiceUsbSerial = "usbser";
+        /// <summary>
+        /// Gets or sets the platform specific device enumerator. Primarily intended for testing.
+        /// </summary>
+        public static IDeviceEnumerator DeviceEnumerator
+        {
+            get => _deviceEnumerator;
+            set => _deviceEnumerator = value ?? throw new ArgumentNullException(nameof(value));
+        }
 
         public static List<TWN4ReaderDevice> GetAvailableReaders()
         {
-            try
-            {
-                var readers = new List<TWN4ReaderDevice>();
-
-                foreach (string deviceInstanceId in FindUsbDevices(ServiceUsbSerial, VendorIdElatec, ProductIdTWN4MultiTech2) ?? new List<string> { "" })
-                {
-                    var portName = RegQuerySZ($"SYSTEM\\CurrentControlSet\\Enum\\{deviceInstanceId}\\Device Parameters", "PortName");
-                    var reader = new TWN4ReaderDevice(portName);
-                    readers.Add(reader);
-                }
-
-                return readers;
-            }
-            catch 
-            {
-                return null;
-            }
-
+            return DeviceEnumerator.GetAvailableReaders() ?? new List<TWN4ReaderDevice>();
         }
 
-        /// <summary>
-        /// Find USB devices of a specified kind.
-        /// </summary>
-        /// <param name="service">e.g. "usbser"</param>
-        /// <param name="vendorId"></param>
-        /// <param name="productId"></param>
-        /// <returns>A list of deviceInstanceIds.</returns>
-        public static List<string> FindUsbDevices(string service, string vendorId, string productId)
+        private static IDeviceEnumerator CreatePlatformEnumerator()
         {
-            RegistryKey registryKey = null;
-            var devices = new List<string>();
-            string devicePath = $"USB\\VID_{vendorId}&PID_{productId}\\";
-
-            try
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                registryKey = Registry.LocalMachine.OpenSubKey($"SYSTEM\\CurrentControlSet\\Services\\{service}\\Enum");
-                if (registryKey == null)
-                {
-                    return null;
-                }
-                string[] valueNames = registryKey.GetValueNames();
-                for (int i = 0; i < valueNames.Length; i++)
-                {
-                    object value = registryKey.GetValue(valueNames[i]);
-                    if (value is string device && device.StartsWith(devicePath))
-                    {
-                        devices.Add(device);
-                    }
-                }
+                return new WindowsDeviceEnumerator();
             }
-            finally
-            {
-                registryKey?.Close();
 
-            }
-            return devices;
-        }
-
-        private static string RegQuerySZ(string subKeyName, string valueName)
-        {
-            RegistryKey registryKey = Registry.LocalMachine.OpenSubKey(subKeyName);
-            if (registryKey == null)
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                return null;
+                return new MacOsDeviceEnumerator();
             }
-            object value = registryKey.GetValue(valueName);
-            registryKey.Close();
-            return value?.ToString();
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                return new LinuxDeviceEnumerator();
+            }
+
+            return new NullDeviceEnumerator();
         }
     }
 }
