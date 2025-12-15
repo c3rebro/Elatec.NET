@@ -19,6 +19,15 @@ Tested bix file versions:
 * 4.50
 * 4.51
 
+## Repository layout
+
+- `src/Api` exposes the public API surface, including TWN4 reader abstractions and card models.
+- `src/Drivers` hosts the hardware and transport drivers, such as serial port access and device enumeration helpers.
+- `src/Internal` contains protocol constants and parsers that support the API but are not meant for direct consumption.
+- `src/Utils` collects shared utilities and exceptions used across the library.
+- `examples` is the place for sample applications that demonstrate how to call the API.
+- `tests` holds the unit test projects.
+
 Hint: Some readers may show unexpected behavior. Especially with Legic Capable "TWN4 Multitec (2) HF LF Legic". The reason is that some ISO14443 commands are executed by the internal legic chip.
 
 Examples for the TWN4 - Legic reader "specialties":
