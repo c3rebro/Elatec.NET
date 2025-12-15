@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Elatec.NET.Helpers.ByteArrayHelper.Extensions;
 
-namespace Elatec.NET.APIs.System
+namespace Elatec.NET
 {
     public partial class TWN4ReaderDevice
     {

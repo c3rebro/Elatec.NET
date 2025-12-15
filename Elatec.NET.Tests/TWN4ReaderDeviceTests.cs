@@ -32,5 +32,22 @@ namespace Elatec.NET.Tests
             Assert.True(result);
             Assert.False(fakeTransport.IsOpen);
         }
+
+        [Fact]
+        public async Task GetVersionStringAsync_ParsesResponseAndSetsLegicFlag()
+        {
+            const string versionString = "FW/1.0/B1";
+            var fakeTransport = new FakeReaderTransport("COM3");
+            fakeTransport.QueueResponseBytes(0x00, (byte)versionString.Length,
+                0x46, 0x57, 0x2F, 0x31, 0x2E, 0x30, 0x2F, 0x42, 0x31);
+
+            var device = new TWN4ReaderDevice("COM3", _ => fakeTransport);
+
+            var result = await device.GetVersionStringAsync();
+
+            Assert.Equal("0004FF", Assert.Single(fakeTransport.WrittenLines));
+            Assert.Equal(versionString, result);
+            Assert.True(device.IsTWN4LegicReader);
+        }
     }
 }
