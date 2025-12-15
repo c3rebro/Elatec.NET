@@ -111,7 +111,7 @@ namespace Elatec.NET
                     offTime = duration;
                 }
 
-                if (tone.IsStaccato)    
+                if (tone.IsStaccato)
                 {
                     onTime = (ushort)(duration / 2);
                     offTime = (ushort)(duration / 2);
@@ -119,6 +119,26 @@ namespace Elatec.NET
 
                 await BeepAsync(tone.Volume, (ushort)tone.Pitch, onTime, offTime);
             }
+        }
+
+        /// <summary>
+        /// Activate the reader buzzer for a specified duration.
+        /// </summary>
+        /// <param name="volume">Volume in percent (0-100).</param>
+        /// <param name="frequency">Tone frequency in hertz.</param>
+        /// <param name="onTime">Duration in milliseconds the buzzer should be on.</param>
+        /// <param name="offTime">Duration in milliseconds the buzzer should remain off afterwards.</param>
+        /// <remarks>
+        ///     The firmware exposes the beeper via the periphery API. This helper packages the parameters and delegates to
+        ///     the low-level <see cref="CallFunctionAsync(byte[])"/> call.
+        /// </remarks>
+        public async Task BeepAsync(byte volume, ushort frequency, ushort onTime, ushort offTime)
+        {
+            var payload = new List<byte> { TWN4ReaderDevice.API_PERIPH, 12, volume };
+            payload.AddUInt16(frequency);
+            payload.AddUInt16(onTime);
+            payload.AddUInt16(offTime);
+            await CallFunctionAsync(payload.ToArray());
         }
 
         /// <summary>
@@ -183,6 +203,16 @@ namespace Elatec.NET
             return chip;
         }
 
+        /// <summary>
+        /// Identify the MIFARE subtype using the ATQA/SAK/ATS negotiation described in NXP AN10833.
+        /// </summary>
+        /// <param name="currentChip">Chip metadata that will be enriched with the discovered subtype.</param>
+        /// <remarks>
+        ///     On Legic-capable TWN4 readers the tag selection portion of this flow must be skipped, because the Legic
+        ///     co-processor already completed RATS/ATS during <see cref="SearchTagAsync"/>. Attempting to manually select the
+        ///     tag on those readers results in protocol errors, but the ATS/SAK values returned here still reflect the cached
+        ///     Legic-managed exchange.
+        /// </remarks>
         private async Task DetectMifareSubType(MifareChip currentChip)
         {
             //Start Mifare Identification Process as of NXP AN10833
@@ -840,6 +870,13 @@ namespace Elatec.NET
             get; internal set;
         }
 
+        /// <summary>
+        /// Indicates whether the connected reader is a Legic-capable TWN4 variant based on the firmware version string.
+        /// </summary>
+        /// <remarks>
+        ///     Legic devices offload parts of the ISO14443 flow to a secondary chip (e.g., automatic RATS/ATS), so callers
+        ///     should consult this flag before attempting low-level selection or transparent exchanges.
+        /// </remarks>
         public bool IsTWN4LegicReader
         {
             get; internal set;
