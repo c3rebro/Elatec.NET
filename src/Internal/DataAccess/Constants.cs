@@ -434,6 +434,48 @@ namespace Elatec.NET
         BErr = 305
     }
 
+    #region Host I/O
+
+    /// <summary>
+    /// Directions supported by the host channel buffers.
+    /// </summary>
+    public enum IoDirection : byte
+    {
+        Out = 0,
+        In = 1
+    }
+
+    /// <summary>
+    /// Communication channels available for host I/O helpers.
+    /// </summary>
+    public enum IoChannel : byte
+    {
+        Usb = 0,
+        Com1 = 1,
+        Com2 = 2,
+        CcidData = 3,
+        CcidControl = 4,
+        I2C = 5,
+        Rng = 6,
+        Spi = 7,
+        Host = 8,
+        None = 0xFF
+    }
+
+    /// <summary>
+    /// USB device lifecycle states reported by the reader.
+    /// </summary>
+    public enum UsbDeviceState : byte
+    {
+        NotInitialized = 0,
+        Default = 1,
+        Addressed = 2,
+        Configured = 3,
+        Suspended = 4
+    }
+
+    #endregion
+
     #region GPIOs
 
     /// <summary>

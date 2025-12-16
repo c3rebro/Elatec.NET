@@ -49,5 +49,58 @@ namespace Elatec.NET.Tests
             Assert.Equal(versionString, result);
             Assert.True(device.IsTWN4LegicReader);
         }
+
+        [Fact]
+        public async Task GetBufferSizeAsync_UsesIoApiAndParsesUInt16()
+        {
+            var transport = new FakeReaderTransport("COM4");
+            transport.QueueResponseBytes(0x00, 0x10, 0x27);
+            var device = new TWN4ReaderDevice("COM4", _ => transport);
+
+            var result = await device.GetBufferSizeAsync(IoChannel.Com1, IoDirection.In);
+
+            Assert.Equal((ushort)10000, result);
+            Assert.Single(transport.WrittenLines, "01040101");
+        }
+
+        [Fact]
+        public async Task WriteBytesAsync_SendsPayloadLength()
+        {
+            var transport = new FakeReaderTransport("COM5");
+            transport.QueueResponseBytes(0x00, 0x01);
+            var device = new TWN4ReaderDevice("COM5", _ => transport);
+
+            var acked = await device.WriteBytesAsync(IoChannel.Usb, new byte[] { 0xAA, 0xBB, 0xCC });
+
+            Assert.True(acked);
+            Assert.Single(transport.WrittenLines, "010A0003AABBCC");
+        }
+
+        [Fact]
+        public async Task ReadBytesAsync_ParsesAcknowledgementAndPayload()
+        {
+            var transport = new FakeReaderTransport("COM6");
+            transport.QueueResponseBytes(0x00, 0x01, 0x02, 0xAA, 0xBB);
+            var device = new TWN4ReaderDevice("COM6", _ => transport);
+
+            var result = await device.ReadBytesAsync(IoChannel.Usb, 0x02);
+
+            Assert.True(result.Acknowledged);
+            Assert.Equal(new byte[] { 0xAA, 0xBB }, result.Data);
+            Assert.Single(transport.WrittenLines, "010B0002");
+        }
+
+        [Fact]
+        public async Task SleepAsync_UsesSysApi()
+        {
+            var transport = new FakeReaderTransport("COM7");
+            transport.QueueResponseBytes(0x00, 0x01);
+            var device = new TWN4ReaderDevice("COM7", _ => transport);
+
+            var result = await device.SleepAsync(5, 1);
+
+            Assert.Equal(0x01, result);
+            Assert.Single(transport.WrittenLines, "00070500000001000000");
+        }
     }
 }
