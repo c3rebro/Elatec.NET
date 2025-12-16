@@ -87,7 +87,7 @@ namespace Elatec.NET
         /// <returns>See TWN4 API Reference.</returns>
         public async Task<byte> SleepAsync(uint ticks, uint flags)
         {
-            List<byte> bytes = new List<byte> { API_RF, 7 };
+            List<byte> bytes = new List<byte> { API_SYS, 7 };
             bytes.AddUInt32(ticks);
             bytes.AddUInt32(flags);
             var parser = await CallFunctionAsync(bytes.ToArray());
@@ -210,7 +210,7 @@ namespace Elatec.NET
 
         #region API_PERIPH / Periphery Functions
 
-        public static readonly byte API_PERIPH = 1;
+        public static readonly byte API_PERIPH = 2;
 
         // Not supported: SYSFUNC(API_PERIPH, 0, bool SysSetGpioConfig(byte bits, byte pull_up_down, byte output_type))
 
