@@ -43,6 +43,23 @@ namespace Elatec.NET
             return (ushort)(num | (ushort)(Bytes[ParseIdx++] << 8));
         }
 
+        /// <summary>
+        /// Parse a length-prefixed byte array with a UInt16 length prefix (LSB first).
+        /// </summary>
+        /// <returns>The extracted byte array.</returns>
+        public byte[] ParseUInt16LengthPrefixedByteArray()
+        {
+            var length = ParseUInt16();
+            if (ParseIdx >= Bytes.Count - length + 1)
+            {
+                throw new ApplicationException("Response too short");
+            }
+            var result = new byte[length];
+            Bytes.CopyTo(ParseIdx, result, 0, length);
+            ParseIdx += length;
+            return result;
+        }
+
         public uint ParseUInt32()
         {
             uint num = 0u;

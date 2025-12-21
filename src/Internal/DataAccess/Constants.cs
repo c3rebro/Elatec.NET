@@ -363,6 +363,7 @@ namespace Elatec.NET
 
     /// <summary>
     /// A response to a TWN Simple Protocol command always starts with a byte, which reflects execution of the command on protocol level.
+    /// See APIDocRev28 section 38.5 (Simple Protocol).
     /// </summary>
     public enum ResponseError : byte
     {
@@ -372,6 +373,29 @@ namespace Elatec.NET
         UnusedParameters = 3,
         InvalidFunction = 4,
         ParserError = 5,
+    }
+
+    /// <summary>
+    /// Communication mode flags for Simple Protocol initialization.
+    /// See APIDocRev28 section 38.5.1 (SimpleProtoInit).
+    /// </summary>
+    [Flags]
+    public enum SimpleProtocolCommMode : ushort
+    {
+        /// <summary>
+        /// ASCII framing mode (default firmware setting).
+        /// </summary>
+        Ascii = 0x0000,
+
+        /// <summary>
+        /// Binary framing mode with a 2-byte length prefix.
+        /// </summary>
+        Binary = 0x0001,
+
+        /// <summary>
+        /// Enable CRC framing on Simple Protocol exchanges.
+        /// </summary>
+        CrcOn = 0x0002,
     }
 
     /// <summary>
