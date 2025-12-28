@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.IO.Ports;
 using System.Threading.Tasks;
+using System.Threading;
 using Elatec.NET.Interfaces;
 
 namespace Elatec.NET.System
@@ -11,29 +12,27 @@ namespace Elatec.NET.System
     /// </summary>
     public class SerialPortTransport : IReaderTransport
     {
-        private readonly SerialPort _serialPort;
+        private readonly ISerialPortAdapter _serialPort;
+        private readonly SemaphoreSlim _connectionLock = new SemaphoreSlim(1, 1);
+        private bool _disposed;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SerialPortTransport"/> class for the given port.
         /// </summary>
         /// <param name="portName">Name of the serial port used to reach the reader.</param>
         public SerialPortTransport(string portName)
+            : this(CreateConfiguredPort(portName))
         {
-            if (string.IsNullOrWhiteSpace(portName))
+        }
+
+        internal SerialPortTransport(ISerialPortAdapter serialPort)
+        {
+            if (serialPort == null)
             {
-                throw new ArgumentException("Port name must be provided.", nameof(portName));
+                throw new ArgumentNullException(nameof(serialPort));
             }
 
-            _serialPort = new SerialPort
-            {
-                PortName = portName,
-                BaudRate = 9600,
-                DataBits = 8,
-                StopBits = StopBits.One,
-                Parity = Parity.None,
-                NewLine = "\r"
-            };
-
+            _serialPort = serialPort;
             _serialPort.ErrorReceived += OnErrorReceived;
         }
 
@@ -63,19 +62,30 @@ namespace Elatec.NET.System
         /// <inheritdoc />
         public async Task ConnectAsync()
         {
-            await Task.Run(() =>
+            ThrowIfDisposed();
+
+            await _connectionLock.WaitAsync().ConfigureAwait(false);
+            try
             {
+                ThrowIfDisposed();
                 if (!_serialPort.IsOpen)
                 {
                     _serialPort.Open();
                 }
-            }).ConfigureAwait(false);
+            }
+            finally
+            {
+                _connectionLock.Release();
+            }
         }
 
         /// <inheritdoc />
         public async Task DisconnectAsync()
         {
-            await Task.Run(() =>
+            ThrowIfDisposed();
+
+            await _connectionLock.WaitAsync().ConfigureAwait(false);
+            try
             {
                 if (_serialPort.IsOpen)
                 {
@@ -83,49 +93,97 @@ namespace Elatec.NET.System
                     _serialPort.DiscardOutBuffer();
                     _serialPort.Close();
                 }
-            }).ConfigureAwait(false);
+            }
+            finally
+            {
+                _connectionLock.Release();
+            }
         }
 
         /// <inheritdoc />
         public void DiscardInBuffer()
         {
+            ThrowIfDisposed();
             _serialPort.DiscardInBuffer();
         }
 
         /// <inheritdoc />
         public void DiscardOutBuffer()
         {
+            ThrowIfDisposed();
             _serialPort.DiscardOutBuffer();
         }
 
         /// <inheritdoc />
         public async Task<string> ReadLineAsync()
         {
+            ThrowIfDisposed();
             return await Task.Run(() => _serialPort.ReadLine()).ConfigureAwait(false);
         }
 
         /// <inheritdoc />
         public async Task WriteLineAsync(string data)
         {
+            ThrowIfDisposed();
             await Task.Run(() => _serialPort.WriteLine(data)).ConfigureAwait(false);
         }
 
         /// <inheritdoc />
         public void Dispose()
         {
-            _serialPort.ErrorReceived -= OnErrorReceived;
-
-            if (_serialPort.IsOpen)
+            if (_disposed)
             {
-                _serialPort.Close();
+                return;
             }
 
-            _serialPort.Dispose();
+            _connectionLock.Wait();
+            try
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _disposed = true;
+                _serialPort.ErrorReceived -= OnErrorReceived;
+
+                if (_serialPort.IsOpen)
+                {
+                    _serialPort.DiscardInBuffer();
+                    _serialPort.DiscardOutBuffer();
+                    _serialPort.Close();
+                }
+
+                _serialPort.Dispose();
+            }
+            finally
+            {
+                _connectionLock.Release();
+                _connectionLock.Dispose();
+            }
         }
 
         private void OnErrorReceived(object sender, SerialErrorReceivedEventArgs e)
         {
             ErrorReceived?.Invoke(this, new IOException($"Serial port error: {e.EventType}"));
+        }
+
+        private static ISerialPortAdapter CreateConfiguredPort(string portName)
+        {
+            if (string.IsNullOrWhiteSpace(portName))
+            {
+                throw new ArgumentException("Port name must be provided.", nameof(portName));
+            }
+
+            return new SerialPortAdapter(portName);
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(SerialPortTransport));
+            }
         }
     }
 }
