@@ -313,6 +313,35 @@ namespace Elatec.NET.Cards.Mifare
         private byte readWriteKeyNo;
         private byte changeKeyNo;
 
+        /// <summary>
+        /// Pack access rights in DESFire datasheet nibble order:
+        /// Read (bits 15-12), Write (11-8), Read&Write (7-4), Change (3-0).
+        /// </summary>
+        /// <returns>Access rights word in datasheet order.</returns>
+        public ushort ToAccessRightsWord()
+        {
+            return (ushort)(((readKeyNo & 0x0F) << 12)
+                | ((writeKeyNo & 0x0F) << 8)
+                | ((readWriteKeyNo & 0x0F) << 4)
+                | (changeKeyNo & 0x0F));
+        }
+
+        /// <summary>
+        /// Unpack a DESFire access rights word using datasheet nibble order.
+        /// </summary>
+        /// <param name="accessRights">Access rights word in datasheet order.</param>
+        /// <returns><see cref="DESFireFileAccessRights"/> instance.</returns>
+        public static DESFireFileAccessRights FromAccessRightsWord(ushort accessRights)
+        {
+            return new DESFireFileAccessRights
+            {
+                ReadKeyNo = (byte)((accessRights >> 12) & 0x0F),
+                WriteKeyNo = (byte)((accessRights >> 8) & 0x0F),
+                ReadWriteKeyNo = (byte)((accessRights >> 4) & 0x0F),
+                ChangeKeyNo = (byte)(accessRights & 0x0F)
+            };
+        }
+
         public byte ReadKeyNo
         {
             get => readKeyNo; set => readKeyNo = value;
