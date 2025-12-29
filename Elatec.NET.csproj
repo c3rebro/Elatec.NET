@@ -21,7 +21,9 @@
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<RepositoryUrl>$(Projekt-URL)</RepositoryUrl>
 	<PackageTags>rfid; elatec; twn4</PackageTags>
-	<PackageReleaseNotes>v0.5.1 Fixed: Format_Desfire - No AuthMode needed
+	<PackageReleaseNotes>v0.6.0 Fixed: DESFire access rights packing order
+v0.5.2 Add serial-port adapter, guard open/close with lock and disposal, and add tests
+v0.5.1 Fixed: Format_Desfire - No AuthMode needed
 v0.5.0 Added: Implemented missing MIFARE DESFire "Simple Protocol" methods (value ops, record ops, transaction ops, card/key utils, file settings, ATS/default key/random ID/disable-format).
       Added: Implemented missing MIFARE Classic value block operations (read/write/inc/dec/copy).
       Added: Implemented missing MIFARE Ultralight / Ultralight C / Ultralight EV1 functions (write page, auth/SAM ops, counters, version/signature, pwd auth, tearing event).
@@ -33,7 +35,7 @@ v0.4.1 Fix: Missing CryptoMode byte in WriteDataAsync()
 v0.4 Added DisconnectAsync()
 v0.3 Incompatible changes: changed bytepattern of CardType
 v0.2 take legic capable reader "specialties" into account. See Readme.MD for further details</PackageReleaseNotes>
-	<AssemblyVersion>0.5.1</AssemblyVersion>
+	<AssemblyVersion>0.6.0</AssemblyVersion>
 	<FileVersion>$(AssemblyVersion)</FileVersion>
 	<PackageLicenseFile>LICENSE</PackageLicenseFile>
   <IncludeContentInPack>true</IncludeContentInPack>
