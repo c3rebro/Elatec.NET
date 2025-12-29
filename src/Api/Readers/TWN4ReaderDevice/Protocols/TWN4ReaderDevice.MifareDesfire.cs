@@ -266,11 +266,7 @@ namespace Elatec.NET
                 fileSettings.ComSett = parser.ParseByte();
 
                 var ar = parser.ParseUInt16();
-
-                fileSettings.accessRights.ReadKeyNo = (byte)(ar & 0x000F);
-                fileSettings.accessRights.WriteKeyNo = (byte)((ar & 0x00F0) >> 4);
-                fileSettings.accessRights.ReadWriteKeyNo = (byte)((ar & 0x0F00) >> 8);
-                fileSettings.accessRights.ChangeKeyNo = (byte)((ar & 0xF000) >> 12);
+                fileSettings.accessRights = DESFireFileAccessRights.FromAccessRightsWord(ar);
 
                 switch (fileSettings.FileType)
                 {
@@ -593,12 +589,7 @@ namespace Elatec.NET
         {
             List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CREATE_STDDATAFILE, CRYPTO_ENV, fileNo, (byte)fileType, (byte)mode };
 
-            UInt16 fileAccessRights = 0;
-
-            fileAccessRights |= accessRights.ReadKeyNo;
-            fileAccessRights |= (byte)(accessRights.WriteKeyNo << 4);
-            fileAccessRights |= (byte)(accessRights.ReadWriteKeyNo << 8);
-            fileAccessRights |= (byte)(accessRights.ChangeKeyNo << 12);
+            UInt16 fileAccessRights = accessRights.ToAccessRightsWord();
 
             bytes.AddUInt16(fileAccessRights);
             bytes.AddUInt32(fileSize);
@@ -638,12 +629,7 @@ namespace Elatec.NET
         {
             List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CREATE_VALUEFILE, CRYPTO_ENV, fileNo, (byte)fileType, (byte)mode };
 
-            UInt16 fileAccessRights = 0;
-
-            fileAccessRights |= accessRights.ReadKeyNo;
-            fileAccessRights |= (UInt16)(accessRights.WriteKeyNo << 4);
-            fileAccessRights |= (UInt16)(accessRights.ReadWriteKeyNo << 8);
-            fileAccessRights |= (UInt16)(accessRights.ChangeKeyNo << 12);
+            UInt16 fileAccessRights = accessRights.ToAccessRightsWord();
 
             bytes.AddUInt16(fileAccessRights);
             bytes.AddUInt32(lowerLimit);
@@ -851,17 +837,8 @@ namespace Elatec.NET
         {
             List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CHANGEFILESETTINGS, CRYPTO_ENV, fileNo, (byte)newCommSet };
 
-            UInt16 oldAr = 0;
-            oldAr |= oldAccessRights.ReadKeyNo;
-            oldAr |= (UInt16)(oldAccessRights.WriteKeyNo << 4);
-            oldAr |= (UInt16)(oldAccessRights.ReadWriteKeyNo << 8);
-            oldAr |= (UInt16)(oldAccessRights.ChangeKeyNo << 12);
-
-            UInt16 newAr = 0;
-            newAr |= newAccessRights.ReadKeyNo;
-            newAr |= (UInt16)(newAccessRights.WriteKeyNo << 4);
-            newAr |= (UInt16)(newAccessRights.ReadWriteKeyNo << 8);
-            newAr |= (UInt16)(newAccessRights.ChangeKeyNo << 12);
+            UInt16 oldAr = oldAccessRights.ToAccessRightsWord();
+            UInt16 newAr = newAccessRights.ToAccessRightsWord();
 
             bytes.AddUInt16(oldAr);
             bytes.AddUInt16(newAr);
@@ -971,12 +948,7 @@ namespace Elatec.NET
         {
             List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CREATERECORDFILE, CRYPTO_ENV, fileNo, (byte)fileType, (byte)mode };
 
-            UInt16 fileAccessRights = 0;
-
-            fileAccessRights |= accessRights.ReadKeyNo;
-            fileAccessRights |= (UInt16)(accessRights.WriteKeyNo << 4);
-            fileAccessRights |= (UInt16)(accessRights.ReadWriteKeyNo << 8);
-            fileAccessRights |= (UInt16)(accessRights.ChangeKeyNo << 12);
+            UInt16 fileAccessRights = accessRights.ToAccessRightsWord();
 
             bytes.AddUInt16(fileAccessRights);
             bytes.AddUInt32(recordSize);
