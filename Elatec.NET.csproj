@@ -21,7 +21,11 @@
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<RepositoryUrl>$(Projekt-URL)</RepositoryUrl>
 	<PackageTags>rfid; elatec; twn4</PackageTags>
-	<PackageReleaseNotes>v0.6.0 Fixed: DESFire access rights packing order
+	<PackageReleaseNotes>v.0.6.1 Added an async lock field SemaphoreSlim _transportLock to TWN4ReaderDevice to serialize access to the transport.
+    Wrapped the transport TX/RX path in DoTXRXAsync with await _transportLock.WaitAsync() and a finally that calls _transportLock.Release() to ensure calls do not overlap.
+    Added a test helper ConcurrentReaderTransport that detects overlapping write/read cycles.
+    Added a unit test CallFunctionRawAsync_SerializesConcurrentCalls to verify concurrent CallFunctionRawAsync calls are serialized and do not overlap.
+v0.6.0 Fixed: DESFire access rights packing order
 v0.5.2 Add serial-port adapter, guard open/close with lock and disposal, and add tests
 v0.5.1 Fixed: Format_Desfire - No AuthMode needed
 v0.5.0 Added: Implemented missing MIFARE DESFire "Simple Protocol" methods (value ops, record ops, transaction ops, card/key utils, file settings, ATS/default key/random ID/disable-format).
@@ -35,7 +39,7 @@ v0.4.1 Fix: Missing CryptoMode byte in WriteDataAsync()
 v0.4 Added DisconnectAsync()
 v0.3 Incompatible changes: changed bytepattern of CardType
 v0.2 take legic capable reader "specialties" into account. See Readme.MD for further details</PackageReleaseNotes>
-	<AssemblyVersion>0.6.0</AssemblyVersion>
+	<AssemblyVersion>0.6.1</AssemblyVersion>
 	<FileVersion>$(AssemblyVersion)</FileVersion>
 	<PackageLicenseFile>LICENSE</PackageLicenseFile>
   <IncludeContentInPack>true</IncludeContentInPack>
