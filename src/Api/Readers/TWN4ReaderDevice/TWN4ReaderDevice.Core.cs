@@ -42,6 +42,8 @@ namespace Elatec.NET
 
         private static readonly object syncRoot = new object();
         private static List<TWN4ReaderDevice> instance;
+        // Serialize access to the underlying transport to prevent interleaved async commands.
+        private readonly SemaphoreSlim _transportLock = new SemaphoreSlim(1, 1);
         private readonly Func<string, IReaderTransport> _transportFactory;
         private IReaderTransport _transport;
 
@@ -811,6 +813,7 @@ namespace Elatec.NET
         /// <returns></returns>
         private async Task<byte[]> DoTXRXAsync(byte[] CMD)
         {
+            await _transportLock.WaitAsync().ConfigureAwait(false);
             try
             {
                 EnsureTransport();
@@ -835,6 +838,10 @@ namespace Elatec.NET
             catch
             {
                 throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotOpen), null);
+            }
+            finally
+            {
+                _transportLock.Release();
             }
 
         }// End of DoTXRXAsync

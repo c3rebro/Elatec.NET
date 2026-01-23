@@ -102,5 +102,24 @@ namespace Elatec.NET.Tests
             Assert.Equal(0x01, result);
             Assert.Single(transport.WrittenLines, "00070500000001000000");
         }
+
+        [Fact]
+        public async Task CallFunctionRawAsync_SerializesConcurrentCalls()
+        {
+            var transport = new ConcurrentReaderTransport("COM8");
+            transport.Responses.Enqueue("00");
+            transport.Responses.Enqueue("00");
+            var device = new TWN4ReaderDevice("COM8", _ => transport);
+
+            var firstTask = device.CallFunctionRawAsync(new byte[] { 0xAA });
+            await transport.FirstWriteSeen.Task;
+            var secondTask = device.CallFunctionRawAsync(new byte[] { 0xBB });
+
+            transport.AllowRead.TrySetResult(true);
+            await Task.WhenAll(firstTask, secondTask);
+
+            Assert.False(transport.OverlapDetected);
+            Assert.Equal(2, transport.WrittenLines.Count);
+        }
     }
 }
