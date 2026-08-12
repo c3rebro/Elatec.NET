@@ -173,8 +173,9 @@ namespace Elatec.NET
         /// <exception cref="ReaderException"></exception>
         public async Task MifareDesfire_AuthenticateAsync(string key, byte keyNo, byte keyType, byte authMode)
         {
-            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_AUTH, CRYPTO_ENV , keyNo, DESFIRE_KEYLENGTH};
-            bytes.AddRange(ByteArrayConverter.GetBytesFrom(key));
+            var keyBytes = ByteArrayConverter.GetBytesFrom(key);
+            List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_AUTH, CRYPTO_ENV, keyNo, (byte)keyBytes.Length };
+            bytes.AddRange(keyBytes);
             bytes.Add(keyType);
             bytes.Add(authMode);
 
