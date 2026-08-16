@@ -807,11 +807,13 @@ namespace Elatec.NET
         /// <returns></returns>
         public async Task MifareDesfire_ChangeKeyAsync(string oldKey, string newKey, byte keyVersion, byte accessRights, byte keyNo, UInt32 numberOfKeys, DESFireKeyType keyType)
         {
+            var oldKeyBytes = ByteArrayConverter.GetBytesFrom(oldKey);
+            var newKeyBytes = ByteArrayConverter.GetBytesFrom(newKey);
             List<byte> bytes = new List<byte> { API_MIFAREDESFIRE, MIFARE_DESFIRE_CHANGEKEY, CRYPTO_ENV, keyNo };
-            bytes.Add(DESFIRE_KEYLENGTH);
-            bytes.AddRange(ByteArrayConverter.GetBytesFrom(oldKey));
-            bytes.Add(DESFIRE_KEYLENGTH);
-            bytes.AddRange(ByteArrayConverter.GetBytesFrom(newKey));
+            bytes.Add((byte)oldKeyBytes.Length);
+            bytes.AddRange(oldKeyBytes);
+            bytes.Add((byte)newKeyBytes.Length);
+            bytes.AddRange(newKeyBytes);
             bytes.Add(keyVersion);
             bytes.Add(accessRights);
             bytes.AddUInt32(numberOfKeys);
