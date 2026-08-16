@@ -11,6 +11,7 @@ jobs:
     permissions:
       packages: write
       contents: read
+      id-token: write  # required for OIDC trusted publishing to NuGet.org
 
     steps:
       - name: Checkout
@@ -24,8 +25,20 @@ jobs:
       - name: Pack
         run: dotnet pack Elatec.NET.csproj --configuration Release --output ./nupkg
 
+      - name: Get NuGet.org token via Trusted Publishing (OIDC)
+        id: nuget-auth
+        run: |
+          oidc_token=$(curl -sS \
+            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=nuget.org" | jq -r .value)
+          nuget_token=$(curl -sS -X POST \
+            -H "Authorization: Bearer ${oidc_token}" \
+            "https://api.nuget.org/v1/trustedpublisher/exchange" | jq -r .token)
+          echo "::add-mask::${nuget_token}"
+          echo "token=${nuget_token}" >> "$GITHUB_OUTPUT"
+
       - name: Push to NuGet.org
-        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ steps.nuget-auth.outputs.token }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Push to GitHub Packages
         run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/c3rebro/index.json --skip-duplicate
