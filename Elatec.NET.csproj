@@ -21,7 +21,7 @@
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<RepositoryUrl>$(Projekt-URL)</RepositoryUrl>
 	<PackageTags>rfid; elatec; twn4</PackageTags>
-	<PackageReleaseNotes>v0.6.4 Fixed: Restores the TWN4 PERIPH Simple Protocol mapping (API 0x04), including Beep, LED and GPIO commands. PlayMelody/sample compatibility is restored, and App/API-only SYSFUNC wrappers no longer send misleading Simple Protocol frames. Fixes #24.
+	<PackageReleaseNotes>v0.6.4 Fixed: Restores the TWN4 PERIPH Simple Protocol mapping (API 0x04), including Beep, LED and GPIO commands. PlayMelody/sample compatibility is restored, App/API-only SYSFUNC wrappers no longer send misleading Simple Protocol frames, and compatibility shims remain buildable for net46. Fixes #24.
 v0.6.3 Fix: MifareDesfire_ChangeKeyAsync now uses the actual key byte length instead of the hardcoded 16-byte constant, enabling cross-type key changes (e.g. 3DES→3K3DES) without UnusedParameters errors.
 v0.6.2 Fix: MifareDesfire_AuthenticateAsync now uses the actual key byte length instead of the hardcoded 16-byte constant, enabling correct 3K3DES authentication with 24-byte keys.
 v0.6.1 Added an async lock field SemaphoreSlim _transportLock to TWN4ReaderDevice to serialize access to the transport.
