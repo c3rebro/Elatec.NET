@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -126,18 +126,19 @@ namespace Elatec.NET
 
         /// <summary>
         /// Activate the reader buzzer for a specified duration.
+        /// Simple Protocol command: 0x0407.
         /// </summary>
         /// <param name="volume">Volume in percent (0-100).</param>
         /// <param name="frequency">Tone frequency in hertz.</param>
         /// <param name="onTime">Duration in milliseconds the buzzer should be on.</param>
         /// <param name="offTime">Duration in milliseconds the buzzer should remain off afterwards.</param>
         /// <remarks>
-        ///     The firmware exposes the beeper via the periphery API. This helper packages the parameters and delegates to
-        ///     the low-level <see cref="CallFunctionAsync(byte[])"/> call.
+        ///     The stock Simple Protocol exposes Beep as [0407][Volume][Frequency][OnTime][OffTime].
+        ///     UInt16 values are encoded least-significant byte first.
         /// </remarks>
         public async Task BeepAsync(byte volume, ushort frequency, ushort onTime, ushort offTime)
         {
-            var payload = new List<byte> { TWN4ReaderDevice.API_PERIPH, 12, volume };
+            var payload = new List<byte> { TWN4ReaderDevice.API_PERIPH, 0x07, volume };
             payload.AddUInt16(frequency);
             payload.AddUInt16(onTime);
             payload.AddUInt16(offTime);
