@@ -19,6 +19,7 @@ jobs:
 
     steps:
       - name: Checkout
+        id: checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -48,6 +49,7 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Setup .NET
+        id: setup
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
@@ -67,16 +69,20 @@ jobs:
       - name: Create release tag
         id: tag
         if: github.ref_type != 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           tag="${{ steps.release.outputs.tag }}"
-          existing=$(git ls-remote --tags origin "refs/tags/${tag}" | cut -f1)
+          existing=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" --jq '.object.sha' 2>/dev/null || true)
 
           if [ -n "$existing" ]; then
             echo "Tag $tag already exists at $existing; leaving it unchanged."
           else
-            git tag "$tag" "$GITHUB_SHA"
-            git push origin "$tag"
+            gh api --method POST \
+              "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/${tag}" \
+              -f sha="$GITHUB_SHA"
           fi
 
       - name: Create GitHub release
@@ -125,18 +131,40 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          state="${{ job.status }}"
-          if [ "$state" = "success" ]; then
-            api_state="success"
+          post_status() {
+            step="$1"
+            outcome="$2"
+            if [ "$outcome" = "success" ]; then
+              state="success"
+            else
+              state="failure"
+            fi
+            gh api --method POST \
+              "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+              -f state="$state" \
+              -f context="release/${step}/${outcome}" \
+              -f description="${step} outcome: ${outcome}"
+          }
+
+          post_status "checkout" "${{ steps.checkout.outcome }}"
+          post_status "resolve" "${{ steps.release.outcome }}"
+          post_status "setup" "${{ steps.setup.outcome }}"
+          post_status "restore" "${{ steps.restore.outcome }}"
+          post_status "test" "${{ steps.test.outcome }}"
+          post_status "pack" "${{ steps.pack.outcome }}"
+          post_status "tag" "${{ steps.tag.outcome }}"
+          post_status "github-release" "${{ steps.github-release.outcome }}"
+          post_status "nuget-auth" "${{ steps.nuget-auth.outcome }}"
+          post_status "nuget-push" "${{ steps.nuget-push.outcome }}"
+          post_status "github-packages" "${{ steps.github-packages.outcome }}"
+
+          if [ "${{ job.status }}" = "success" ]; then
+            overall="success"
           else
-            api_state="failure"
+            overall="failure"
           fi
-
-          description="test=${{ steps.test.outcome }}, pack=${{ steps.pack.outcome }}, tag=${{ steps.tag.outcome }}, release=${{ steps.github-release.outcome }}, nuget=${{ steps.nuget-push.outcome }}, ghpkg=${{ steps.github-packages.outcome }}"
-          description=$(printf '%s' "$description" | cut -c1-140)
-
           gh api --method POST \
             "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -f state="$api_state" \
+            -f state="$overall" \
             -f context="release/${{ steps.release.outputs.tag }}" \
-            -f description="$description"
+            -f description="release job: ${{ job.status }}"
