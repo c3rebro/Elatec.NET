@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -17,6 +18,35 @@ namespace Elatec.NET.Tests
 
             Assert.Equal(0x04, TWN4ReaderDevice.API_PERIPH);
             Assert.Single(transport.WrittenLines, "0407646009F401F401");
+        }
+
+        [Fact]
+        public async Task ReadmeSample_BeepLedAndPlayMelody_UseSimpleProtocolFrames()
+        {
+            var transport = new FakeReaderTransport("COM24");
+            transport.QueueResponseBytes(0x00); // Beep
+            transport.QueueResponseBytes(0x00); // LED init
+            transport.QueueResponseBytes(0x00); // LED blink
+            transport.QueueResponseBytes(0x00); // Melody tone
+
+            var device = new TWN4ReaderDevice("COM24", _ => transport);
+
+            // Keep this sequence aligned with README.md and c3rebro/Elatec.Net.SampleApp.
+            await device.BeepAsync(100, 1500, 500, 100);
+            await device.LedInitAsync();
+            await device.LedBlinkAsync(Leds.All, 100, 300);
+            await device.PlayMelody(90, new List<TWN4ReaderDevice.Tone>
+            {
+                new TWN4ReaderDevice.Tone { Value = 4, Pitch = NotePitch.C3 }
+            });
+
+            Assert.Equal(new[]
+            {
+                "040764DC05F4016400",
+                "041007",
+                "04140764002C01",
+                "04073C1704A5000000"
+            }, transport.WrittenLines);
         }
 
         [Fact]
