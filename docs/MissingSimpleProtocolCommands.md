@@ -1,6 +1,8 @@
 # Simple Protocol commands not wrapped in `src/`
 
-The current `TWN4ReaderDevice` wrappers cover the SYS (reset/version), RF tag search, ISO14443 transparent access, and MIFARE Classic/Ultralight helpers. The following Simple Protocol commands from DocRev25 are not surfaced in `src/` and require host-side framing/handling.
+The current `TWN4ReaderDevice` wrappers cover the SYS (reset/version), RF tag search, ISO14443 transparent access, MIFARE Classic/Ultralight helpers, and the PERIPH API (`0x04xx`). The following Simple Protocol commands from DocRev25 are not surfaced in `src/` and require host-side framing/handling.
+
+> **PERIPH note:** API PERIPH is `0x04xx` in the TWN4 Simple Protocol. The commands `GPIOConfigureOutputs` through `BeepOff` (`0x0400`–`0x0417`, excluding undocumented/reserved function numbers) are wrapped by `TWN4ReaderDevice`. GPIO outputs must be configured before they are driven; this is separate from the dedicated beeper commands.
 
 ## API IO (0x01xx)
 - **WriteByte** `[0100][Channel][Byte]` → `[00]`. Writes a single byte to a host/reader channel.【11669d†L1184-L1202】
@@ -11,16 +13,6 @@ The current `TWN4ReaderDevice` wrappers cover the SYS (reset/version), RF tag se
 - **GetUSBDeviceState/GetHostChannel** `[0107|0108]` → `[00][Byte]` returning USB state or host channel mapping.【11669d†L1248-L1260】
 - **USBRemoteWakeup** `[0109]` → `[00]` to trigger remote wake.【11669d†L1248-L1260】
 - **WriteBytes/ReadBytes** `[010A|010B][Channel][Len][Data]/[Channel][Len]` → `[00][Ack?][Payload]` for buffered multi-byte transfers; caller must respect buffer sizes/timing noted above.【11669d†L1248-L1260】
-
-## API GPIO/Diagnostics (0x02xx)
-DocRev25 exposes GPIO drive/LED/beeper frames beyond the basic `SetGpio*` helpers in `src/`:
-- **GPIOConfigureOutputs/Inputs** `[0200|0201][Byte: Mask]` → `[00]` to set output vs. input direction.【18d50a†L47-L53】
-- **GPIOSetBits/GPIOClearBits/GPIOToggleBits** `[0202|0203|0204][Byte: Mask]` → `[00]` for bitwise manipulation; **GPIOBlinkBits** `[0205][Mask][OnTime][OffTime][Repeat]` → `[00]` handles timed blinking.【18d50a†L47-L53】
-- **GPIOTestBit** `[0206][Bit]` → `[00][Bool]` reads a single pin.【18d50a†L47-L53】
-- **Beep/BeepOn/BeepOff** `[0207][Duration]` or `[0213|0214]` → `[00]` for one-shot or continuous tones; timing parameters are milliseconds.【18d50a†L53-L58】
-- **DiagLEDOn/Off/Toggle/IsOn** `[0208|0209|020A|020B]` manage the diagnostic LED; `IsOn` returns `[00][Bool]`.【18d50a†L105-L109】
-- **SendWiegand/SendOmron** `[020C|020D][Byte: BitLen][VarData]` → `[00][Bool]` emit interface frames after optional busy-time delays noted in DocRev25.【18d50a†L109-L114】
-- **LEDInit/On/Off/Toggle/Blink** `[020E-0212]` configure and drive RGB panel LEDs; blink uses on/off times and repeat counters.【18d50a†L111-L115】
 
 ## API TILF LF/HF (0x03xx)
 All TILF low-/high-frequency read/program/lock commands (selective page reads, special lock/write variants) lack wrappers. Each frame starts with `0x03` plus the operation code and carries page numbers, address ranges, optional passwords, and payload bytes; responses are `[00][Bool/Data...]` depending on the variant.【765278†L1-L25】
@@ -46,4 +38,3 @@ Beyond the categories above, DocRev25 lists many card- or interface-specific API
 
 ## Status/ACK behavior
 DocRev25 uses `[00]` as the success byte in every response frame, followed by function-specific payloads (booleans, lengths, data arrays). Buffer-size parameters (`BufferSize`, `MaxLen`, `MaxRXByteCnt`) gate how many bytes the reader returns; callers must poll or throttle for channel/transport buffer fullness where documented (notably API IO read/write/test commands).
-
