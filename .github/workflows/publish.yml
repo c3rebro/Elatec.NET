@@ -62,9 +62,28 @@ jobs:
         id: test
         run: dotnet test Elatec.NET.sln --no-restore
 
+      - name: Build release targets
+        id: release-build
+        run: dotnet build Elatec.NET.csproj --configuration Release --no-restore /p:GeneratePackageOnBuild=false
+
       - name: Pack
         id: pack
-        run: dotnet pack Elatec.NET.csproj --configuration Release --output ./nupkg
+        shell: bash
+        run: |
+          set +e
+          dotnet pack Elatec.NET.csproj --configuration Release --no-build --output ./nupkg /p:GeneratePackageOnBuild=false 2>&1 | tee pack.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            error_code=$(grep -Eo '(CS|NU|MSB)[0-9]{4}' pack.log | head -n1 || true)
+            error_line=$(grep -Em1 '(^|: )(error|Error)|error [A-Z]+' pack.log || tail -n1 pack.log || true)
+            error_slug=$(printf '%s' "$error_line" | tr -cs 'A-Za-z0-9._-' '-' | cut -c1-65)
+            echo "error_code=${error_code:-unknown}" >> "$GITHUB_OUTPUT"
+            echo "error_slug=${error_slug:-unknown}" >> "$GITHUB_OUTPUT"
+          else
+            echo "error_code=none" >> "$GITHUB_OUTPUT"
+            echo "error_slug=none" >> "$GITHUB_OUTPUT"
+          fi
+          exit "$status"
 
       - name: Create release tag
         id: tag
@@ -151,7 +170,11 @@ jobs:
           post_status "setup" "${{ steps.setup.outcome }}"
           post_status "restore" "${{ steps.restore.outcome }}"
           post_status "test" "${{ steps.test.outcome }}"
+          post_status "release-build" "${{ steps.release-build.outcome }}"
           post_status "pack" "${{ steps.pack.outcome }}"
+          if [ "${{ steps.pack.outcome }}" != "success" ]; then
+            post_status "pack-error-${{ steps.pack.outputs.error_code }}-${{ steps.pack.outputs.error_slug }}" "failure"
+          fi
           post_status "tag" "${{ steps.tag.outcome }}"
           post_status "github-release" "${{ steps.github-release.outcome }}"
           post_status "nuget-auth" "${{ steps.nuget-auth.outcome }}"
