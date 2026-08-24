@@ -377,12 +377,12 @@ namespace Elatec.NET
 
         private static Task UnsupportedSimpleProtocolCall(string methodName)
         {
-            return Task.FromException(new NotSupportedException(methodName + " is not available in the stock TWN4 Simple Protocol."));
+            throw new NotSupportedException(methodName + " is not available in the stock TWN4 Simple Protocol.");
         }
 
         private static Task<T> UnsupportedSimpleProtocolCall<T>(string methodName)
         {
-            return Task.FromException<T>(new NotSupportedException(methodName + " is not available in the stock TWN4 Simple Protocol."));
+            throw new NotSupportedException(methodName + " is not available in the stock TWN4 Simple Protocol.");
         }
 
         #endregion
