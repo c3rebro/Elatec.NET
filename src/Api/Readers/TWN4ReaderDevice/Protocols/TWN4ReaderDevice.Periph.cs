@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Elatec.NET.Helpers.ByteArrayHelper.Extensions;
@@ -9,254 +9,383 @@ namespace Elatec.NET
     {
         #region API_PERIPH / Periphery Functions
 
-        public static readonly byte API_PERIPH = 2;
-
-        // Not supported: SYSFUNC(API_PERIPH, 0, bool SysSetGpioConfig(byte bits, byte pull_up_down, byte output_type))
+        /// <summary>
+        /// TWN4 Simple Protocol API identifier for periphery functions (0x04xx).
+        /// </summary>
+        public static readonly byte API_PERIPH = 0x04;
 
         /// <summary>
-        /// Set the polarity and the output type (open-drain or push-pull) of each GPIO pin.
+        /// Configure one or more GPIOs as outputs.
+        /// Simple Protocol command: 0x0400.
         /// </summary>
-        /// <param name="bits">GPIO pins to set. This is a bitmask, where the bits represent the GPIO pins, see TwnGpioEnum.</param>
-        /// <param name="pullUpDown">Input pin resistors: PullUp, PullDown, or None</param>
-        /// <param name="outputType">Output pin types: PushPull or OpenDrain.</param>
-        /// <returns></returns>
-        /// <remarks>SYSFUNC(API_PERIPH, 1, bool GpioSetConfig(byte bits, byte pull_up_down, byte output_type))</remarks>
-        public async Task SetGpioConfigAsync(Gpios bits, PullResistor pullUpDown, OutputType outputType)
+        public async Task GpioConfigureOutputsAsync(Gpios bits, GpioPullType pullUpDown, GpioOutputType outputType)
         {
-            await CallFunctionAsync(new byte[] { API_PERIPH, 0, (byte)bits, (byte)pullUpDown, (byte)outputType });
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x00, (byte)bits, (byte)pullUpDown, (byte)outputType });
         }
 
         /// <summary>
-        /// Set the pull up/down of each GPIO pin.
+        /// Configure one or more GPIOs as inputs.
+        /// Simple Protocol command: 0x0401.
         /// </summary>
-        /// <param name="bits">GPIO pins to set. This is a bitmask, where the bits represent the GPIO pins, see TwnGpioEnum.</param>
-        /// <param name="pullUpDown">Input pin resistors: PullUp, PullDown, or None</param>
-        /// <returns></returns>
-        /// <remarks>SYSFUNC(API_PERIPH, 2, bool GpioSetPullUpDown(byte bits, byte pull_up_down))</remarks>
-        public async Task SetGpioPullUpDownAsync(Gpios bits, PullResistor pullUpDown)
+        public async Task GpioConfigureInputsAsync(Gpios bits, GpioPullType pullUpDown)
         {
-            await CallFunctionAsync(new byte[] { API_PERIPH, 1, (byte)bits, (byte)pullUpDown });
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x01, (byte)bits, (byte)pullUpDown });
         }
 
         /// <summary>
-        /// Set GPIO pins to PushPull.
+        /// Set one or more GPIO outputs to logical high.
+        /// The GPIOs must have been configured as outputs first.
+        /// Simple Protocol command: 0x0402.
         /// </summary>
-        /// <param name="bits">GPIO pins to set. This is a bitmask, where the bits represent the GPIO pins, see TwnGpioEnum.</param>
-        /// <returns></returns>
-        /// <remarks>SYSFUNC(API_PERIPH, 3, bool GpioSetPushPull(byte bits))</remarks>
-        public async Task SetGpioPushPullAsync(Gpios bits)
+        public async Task GpioSetBitsAsync(Gpios bits)
         {
-            await CallFunctionAsync(new byte[] { API_PERIPH, 2, (byte)bits });
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x02, (byte)bits });
         }
 
         /// <summary>
-        /// Set GPIO pins to OpenDrain.
+        /// Set one or more GPIO outputs to logical low.
+        /// The GPIOs must have been configured as outputs first.
+        /// Simple Protocol command: 0x0403.
         /// </summary>
-        /// <param name="bits">GPIO pins to set. This is a bitmask, where the bits represent the GPIO pins, see TwnGpioEnum.</param>
-        /// <returns></returns>
-        /// <remarks>SYSFUNC(API_PERIPH, 4, bool GpioSetOpenDrain(byte bits))</remarks>
-        public async Task SetGpioOpenDrainAsync(Gpios bits)
+        public async Task GpioClearBitsAsync(Gpios bits)
         {
-            await CallFunctionAsync(new byte[] { API_PERIPH, 3, (byte)bits });
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x03, (byte)bits });
         }
 
         /// <summary>
-        /// Set the state of the desired GPIO pins.
+        /// Toggle one or more GPIO outputs.
+        /// The GPIOs must have been configured as outputs first.
+        /// Simple Protocol command: 0x0404.
         /// </summary>
-        /// <param name="bits">GPIO pins to set. This is a bitmask, where the bits represent the GPIO pins, see TwnGpioEnum.</param>
-        /// <returns></returns>
-        /// <remarks>SYSFUNC(API_PERIPH, 5, bool GpioSetBits(byte bits))</remarks>
-        public async Task SetGpioBitsAsync(Gpios bits)
+        public async Task GpioToggleBitsAsync(Gpios bits)
         {
-            await CallFunctionAsync(new byte[] { API_PERIPH, 4, (byte)bits });
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x04, (byte)bits });
         }
 
         /// <summary>
-        /// Clear the state of the desired GPIO pins.
+        /// Blink one or more GPIO outputs.
+        /// The GPIOs must have been configured as outputs first.
+        /// Simple Protocol command: 0x0405.
         /// </summary>
-        /// <param name="bits">GPIO pins to clear. This is a bitmask, where the bits represent the GPIO pins, see TwnGpioEnum.</param>
-        /// <returns></returns>
-        /// <remarks>SYSFUNC(API_PERIPH, 6, bool GpioClearBits(byte bits))</remarks>
-        public async Task ClearGpioBitsAsync(Gpios bits)
+        public async Task GpioBlinkBitsAsync(Gpios bits, ushort timeHigh, ushort timeLow)
         {
-            await CallFunctionAsync(new byte[] { API_PERIPH, 5, (byte)bits });
-        }
-
-        /// <summary>
-        /// Set the state of the desired GPIO pins.
-        /// </summary>
-        /// <param name="setbits">GPIO pins to set. This is a bitmask, where the bits represent the GPIO pins, see TwnGpioEnum.</param>
-        /// <param name="clearbits">GPIO pins to clear. This is a bitmask, where the bits represent the GPIO pins, see TwnGpioEnum.</param>
-        /// <param name="togglebits">GPIO pins to toggle the state of. This is a bitmask, where the bits represent the GPIO pins, see TwnGpioEnum.</param>
-        /// <returns></returns>
-        /// <remarks>SYSFUNC(API_PERIPH, 7, bool GpioWriteBits(byte setbits, byte clearbits, byte togglebits))</remarks>
-        public async Task WriteGpioBitsAsync(Gpios setbits, Gpios clearbits, Gpios togglebits)
-        {
-            List<byte> bytes = new List<byte> { API_PERIPH, 6 };
-            bytes.Add((byte)setbits);
-            bytes.Add((byte)clearbits);
-            bytes.Add((byte)togglebits);
+            var bytes = new List<byte> { API_PERIPH, 0x05, (byte)bits };
+            bytes.AddUInt16(timeHigh);
+            bytes.AddUInt16(timeLow);
             await CallFunctionAsync(bytes.ToArray());
         }
 
         /// <summary>
-        /// Get the state of the desired GPIO pins.
+        /// Read the state of a GPIO.
+        /// Simple Protocol command: 0x0406.
         /// </summary>
-        /// <param name="bit">GPIO pin to check. See TwnGpioEnum.</param>
-        /// <returns>Returns true, if the GPIO pin is set, false otherwise.</returns>
-        /// <remarks>SYSFUNC(API_PERIPH, 8, bool GpioGetBit(byte bit))</remarks>
-        public async Task<bool> GetGpioBitAsync(Gpios bit)
+        public async Task<bool> GpioTestBitAsync(Gpios bit)
         {
-            var parser = await CallFunctionAsync(new byte[] { API_PERIPH, 6, (byte)bit });
-            var result = parser.ParseBool();
-            return result;
+            var parser = await CallFunctionAsync(new byte[] { API_PERIPH, 0x06, (byte)bit });
+            return parser.ParseByte() != 0;
         }
 
         /// <summary>
-        /// This function initializes UART0 in the specified mode. It occupies GPIO pins 1 and 4 (RX and TX).
+        /// Switch the diagnostic LED on.
+        /// Simple Protocol command: 0x0408.
         /// </summary>
-        /// <param name="Mode">The UART mode selection. See TwnUartModeEnum.</param>
-        /// <param name="Baudrate">UART0 baudrate in Bauds</param>
-        /// <returns></returns>
-        /// <remarks>SYSFUNC(API_PERIPH,10, bool SerialSetMode(byte Mode, unsigned int Baudrate))</remarks>
-        public async Task SetSerialModeAsync(SerialMode Mode, uint Baudrate)
+        public async Task DiagLedOnAsync()
         {
-            List<byte> bytes = new List<byte> { API_PERIPH, 8 };
-            bytes.Add((byte)Mode);
-            bytes.AddUInt32(Baudrate);
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x08 });
+        }
+
+        /// <summary>
+        /// Switch the diagnostic LED off.
+        /// Simple Protocol command: 0x0409.
+        /// </summary>
+        public async Task DiagLedOffAsync()
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x09 });
+        }
+
+        /// <summary>
+        /// Toggle the diagnostic LED.
+        /// Simple Protocol command: 0x040A.
+        /// </summary>
+        public async Task DiagLedToggleAsync()
+        {
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x0A });
+        }
+
+        /// <summary>
+        /// Query the diagnostic LED state.
+        /// Simple Protocol command: 0x040B.
+        /// </summary>
+        public async Task<bool> DiagLedIsOnAsync()
+        {
+            var parser = await CallFunctionAsync(new byte[] { API_PERIPH, 0x0B });
+            return parser.ParseBool();
+        }
+
+        /// <summary>
+        /// Send a Wiegand bit stream.
+        /// Simple Protocol command: 0x040C.
+        /// </summary>
+        public async Task SendWiegandAsync(Gpios gpioData0, Gpios gpioData1, ushort pulseTime, ushort intervalTime, byte[] bits, byte bitCount)
+        {
+            if (bits == null)
+            {
+                throw new ArgumentNullException(nameof(bits));
+            }
+
+            if (bits.Length > byte.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(bits), "Simple Protocol Byte Array(Var) fields are limited to 255 bytes.");
+            }
+
+            var bytes = new List<byte> { API_PERIPH, 0x0C, (byte)gpioData0, (byte)gpioData1 };
+            bytes.AddUInt16(pulseTime);
+            bytes.AddUInt16(intervalTime);
+            bytes.Add((byte)bits.Length);
+            bytes.AddRange(bits);
+            bytes.Add(bitCount);
             await CallFunctionAsync(bytes.ToArray());
         }
 
         /// <summary>
-        /// Writes to UART0.
+        /// Send an Omron bit stream.
+        /// Simple Protocol command: 0x040D.
         /// </summary>
-        /// <param name="Data">Data to write to UART0.</param>
-        /// <returns></returns>
-        /// <remarks>SYSFUNC(API_PERIPH,11, bool SerialWrite(const byte* Data, int ByteCount))</remarks>
-        public async Task SerialWriteAsync(byte[] Data)
+        public async Task SendOmronAsync(Gpios gpioClock, Gpios gpioData, ushort t1, ushort t2, ushort t3, byte[] bits, byte bitCount)
         {
-            List<byte> bytes = new List<byte> { API_PERIPH, 9 };
-            bytes.Add((byte)Data.Length);
-            bytes.AddRange(Data);
+            if (bits == null)
+            {
+                throw new ArgumentNullException(nameof(bits));
+            }
+
+            if (bits.Length > byte.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(bits), "Simple Protocol Byte Array(Var) fields are limited to 255 bytes.");
+            }
+
+            var bytes = new List<byte> { API_PERIPH, 0x0D, (byte)gpioClock, (byte)gpioData };
+            bytes.AddUInt16(t1);
+            bytes.AddUInt16(t2);
+            bytes.AddUInt16(t3);
+            bytes.Add((byte)bits.Length);
+            bytes.AddRange(bits);
+            bytes.Add(bitCount);
             await CallFunctionAsync(bytes.ToArray());
         }
 
         /// <summary>
-        /// Reads from UART0 into a buffer.
+        /// Initialize GPIOs for LED operation.
+        /// Simple Protocol command: 0x0410.
         /// </summary>
-        /// <param name="MaxBytes">Maximum number of bytes to read from UART0.</param>
-        /// <returns></returns>
-        /// <remarks>SYSFUNC(API_PERIPH,12, int SerialRead(byte* Data,int MaxByteCount))</remarks>
-        public async Task<byte[]> SerialReadAsync(byte MaxBytes)
+        public async Task LedInitAsync(Leds leds = Leds.All)
         {
-            List<byte> bytes = new List<byte> { API_PERIPH, 10 };
-            bytes.Add(MaxBytes);
-            var parser = await CallFunctionAsync(bytes.ToArray());
-            var result = parser.ParseFlexByteArray();
-            return result;
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x10, (byte)leds });
         }
 
         /// <summary>
-        /// Reads and writes to UART0.
+        /// Compatibility alias for <see cref="LedInitAsync(Leds)"/>.
         /// </summary>
-        /// <param name="writeData">Data to write to UART0.</param>
-        /// <param name="readMaxBytes">Maximum number of bytes to read from UART0.</param>
-        /// <returns></returns>
-        /// <remarks>SYSFUNC(API_PERIPH,13, int SerialReadWrite(const byte* writeData,int writeByteCount,byte* readData,int readMaxByteCount))</remarks>
-        public async Task<byte[]> SerialReadWriteAsync(byte[] writeData, byte readMaxBytes)
+        public Task InitLedsAsync(Leds leds = Leds.All)
         {
-            List<byte> bytes = new List<byte> { API_PERIPH, 11 };
-            bytes.Add((byte)writeData.Length);
-            bytes.AddRange(writeData);
-            bytes.Add(readMaxBytes);
-            var parser = await CallFunctionAsync(bytes.ToArray());
-            var result = parser.ParseFlexByteArray();
-            return result;
+            return LedInitAsync(leds);
         }
 
         /// <summary>
-        /// Causes the device to emit an acoustic tone using buzzer or speaker for the desired duration.
+        /// Switch one or more initialized LEDs on.
+        /// Simple Protocol command: 0x0411.
         /// </summary>
-        /// <param name="duration">Milliseconds of tone output</param>
-        /// <remarks>SYSFUNC(API_PERIPH,16, void PlaySound(int duration))</remarks>
-        public async Task PlaySoundAsync(short duration)
+        public async Task LedOnAsync(Leds leds)
         {
-            await CallFunctionAsync(new byte[] { API_PERIPH, 16, (byte)duration });
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x11, (byte)leds });
         }
 
         /// <summary>
-        /// Causes the device to emit two acoustic tones using buzzer or speaker for the desired duration.
+        /// Switch one or more initialized LEDs off.
+        /// Simple Protocol command: 0x0412.
         /// </summary>
-        /// <param name="duration">Milliseconds of tone output</param>
-        /// <remarks>SYSFUNC(API_PERIPH,17, void PlaySound1(int duration))</remarks>
-        public async Task PlaySound1Async(short duration)
+        public async Task LedOffAsync(Leds leds)
         {
-            await CallFunctionAsync(new byte[] { API_PERIPH, 17, (byte)duration });
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x12, (byte)leds });
         }
 
         /// <summary>
-        /// Causes the device to emit two acoustic tones using buzzer or speaker for the desired duration.
+        /// Toggle one or more initialized LEDs.
+        /// Simple Protocol command: 0x0413.
         /// </summary>
-        /// <param name="duration">Milliseconds of tone output</param>
-        /// <remarks>SYSFUNC(API_PERIPH,18, void PlaySound2(int duration))</remarks>
-        public async Task PlaySound2Async(short duration)
+        public async Task LedToggleAsync(Leds leds)
         {
-            await CallFunctionAsync(new byte[] { API_PERIPH, 18, (byte)duration });
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x13, (byte)leds });
         }
 
         /// <summary>
-        /// Causes the device to emit an acoustic tone using buzzer or speaker for the desired duration.
+        /// Blink one or more initialized LEDs.
+        /// Simple Protocol command: 0x0414.
         /// </summary>
-        /// <param name="tone1Duration">Duration of first tone in milliseconds.</param>
-        /// <param name="tone2Duration">Duration of second tone in milliseconds.</param>
-        /// <remarks>SYSFUNC(API_PERIPH,19, void PlaySound4(int tone1Duration, int tone2Duration))</remarks>
-        public async Task PlaySound4Async(short tone1Duration, short tone2Duration)
+        public async Task LedBlinkAsync(Leds leds, ushort onTime, ushort offTime)
         {
-            await CallFunctionAsync(new byte[] { API_PERIPH, 19, (byte)tone1Duration, (byte)tone2Duration });
-        }
-
-        /// <summary>
-        /// Causes the device to emit a melody.
-        /// </summary>
-        /// <param name="tones">The desired melody: tones.</param>
-        /// <param name="durations">The desired melody: durations. This represents a percentage with 255=100%.</param>
-        /// <remarks>SYSFUNC(API_PERIPH,20, void PlayMelody(const byte* tones,const byte* durations,int Count,int RepeatCount))</remarks>
-        public async Task PlayMelodyAsync(byte[] tones, byte[] durations)
-        {
-            List<byte> bytes = new List<byte> { API_PERIPH, 20 };
-            bytes.Add((byte)tones.Length);
-            bytes.AddRange(tones);
-            bytes.Add((byte)durations.Length);
-            bytes.AddRange(durations);
+            var bytes = new List<byte> { API_PERIPH, 0x14, (byte)leds };
+            bytes.AddUInt16(onTime);
+            bytes.AddUInt16(offTime);
             await CallFunctionAsync(bytes.ToArray());
         }
 
         /// <summary>
-        /// Causes the device to emit a melody.
+        /// Switch the beeper on continuously.
+        /// Simple Protocol command: 0x0416.
         /// </summary>
-        /// <param name="tones">The desired melody: tones.</param>
-        /// <param name="durations">The desired melody: durations. This represents a percentage with 255=100%.</param>
-        /// <param name="repeatCount">Repeat the melody repeatCount times.</param>
-        /// <remarks>SYSFUNC(API_PERIPH,21, void PlayMelody(const byte* tones,const byte* durations,int Count,int RepeatCount))</remarks>
-        public async Task PlayMelodyAsync(byte[] tones, byte[] durations, byte repeatCount)
+        public async Task BeepOnAsync(byte volume, ushort frequency)
         {
-            List<byte> bytes = new List<byte> { API_PERIPH, 20 };
-            bytes.Add((byte)tones.Length);
-            bytes.AddRange(tones);
-            bytes.Add((byte)durations.Length);
-            bytes.AddRange(durations);
-            bytes.Add(repeatCount);
+            var bytes = new List<byte> { API_PERIPH, 0x16, volume };
+            bytes.AddUInt16(frequency);
             await CallFunctionAsync(bytes.ToArray());
         }
 
         /// <summary>
-        /// Stops an acoustic tone or melody produced by a previous PlaySound or PlayMelody call.
+        /// Switch the beeper off.
+        /// Simple Protocol command: 0x0417.
         /// </summary>
-        /// <remarks>SYSFUNC(API_PERIPH,22, void StopSound())</remarks>
-        public async Task StopSoundAsync()
+        public async Task BeepOffAsync()
         {
-            await CallFunctionAsync(new byte[] { API_PERIPH, 23 });
+            await CallFunctionAsync(new byte[] { API_PERIPH, 0x17 });
         }
+
+        #region Compatibility aliases
+
+        /// <summary>
+        /// Compatibility alias for configuring GPIO outputs.
+        /// </summary>
+        public Task SetGpioConfigAsync(Gpios bits, PullResistor pullUpDown, OutputType outputType)
+        {
+            return GpioConfigureOutputsAsync(bits, (GpioPullType)pullUpDown, (GpioOutputType)outputType);
+        }
+
+        /// <summary>
+        /// Compatibility alias for <see cref="GpioSetBitsAsync(Gpios)"/>.
+        /// </summary>
+        public Task SetGpioBitsAsync(Gpios bits)
+        {
+            return GpioSetBitsAsync(bits);
+        }
+
+        /// <summary>
+        /// Compatibility alias for <see cref="GpioClearBitsAsync(Gpios)"/>.
+        /// </summary>
+        public Task ClearGpioBitsAsync(Gpios bits)
+        {
+            return GpioClearBitsAsync(bits);
+        }
+
+        /// <summary>
+        /// Compatibility alias for <see cref="GpioTestBitAsync(Gpios)"/>.
+        /// </summary>
+        public Task<bool> GetGpioBitAsync(Gpios bit)
+        {
+            return GpioTestBitAsync(bit);
+        }
+
+        [Obsolete("GpioSetPullUpDown is part of the TWN4 App/API SYSFUNC interface and has no equivalent command in the stock Simple Protocol. Use GpioConfigureInputsAsync or GpioConfigureOutputsAsync instead.")]
+        public Task SetGpioPullUpDownAsync(Gpios bits, PullResistor pullUpDown)
+        {
+            return UnsupportedSimpleProtocolCall(nameof(SetGpioPullUpDownAsync));
+        }
+
+        [Obsolete("GpioSetPushPull is part of the TWN4 App/API SYSFUNC interface and has no equivalent command in the stock Simple Protocol. Use GpioConfigureOutputsAsync instead.")]
+        public Task SetGpioPushPullAsync(Gpios bits)
+        {
+            return UnsupportedSimpleProtocolCall(nameof(SetGpioPushPullAsync));
+        }
+
+        [Obsolete("GpioSetOpenDrain is part of the TWN4 App/API SYSFUNC interface and has no equivalent command in the stock Simple Protocol. Use GpioConfigureOutputsAsync instead.")]
+        public Task SetGpioOpenDrainAsync(Gpios bits)
+        {
+            return UnsupportedSimpleProtocolCall(nameof(SetGpioOpenDrainAsync));
+        }
+
+        [Obsolete("GpioWriteBits is part of the TWN4 App/API SYSFUNC interface and has no atomic equivalent in the stock Simple Protocol. Use GpioSetBitsAsync, GpioClearBitsAsync and GpioToggleBitsAsync instead.")]
+        public Task WriteGpioBitsAsync(Gpios setbits, Gpios clearbits, Gpios togglebits)
+        {
+            return UnsupportedSimpleProtocolCall(nameof(WriteGpioBitsAsync));
+        }
+
+        [Obsolete("SerialSetMode is part of the TWN4 App/API SYSFUNC interface and is not a stock Simple Protocol PERIPH command. Use the API IO Simple Protocol functions where appropriate.")]
+        public Task SetSerialModeAsync(SerialMode mode, uint baudrate)
+        {
+            return UnsupportedSimpleProtocolCall(nameof(SetSerialModeAsync));
+        }
+
+        [Obsolete("SerialWrite is part of the TWN4 App/API SYSFUNC interface and is not a stock Simple Protocol PERIPH command. Use the API IO Simple Protocol functions where appropriate.")]
+        public Task SerialWriteAsync(byte[] data)
+        {
+            return UnsupportedSimpleProtocolCall(nameof(SerialWriteAsync));
+        }
+
+        [Obsolete("SerialRead is part of the TWN4 App/API SYSFUNC interface and is not a stock Simple Protocol PERIPH command. Use the API IO Simple Protocol functions where appropriate.")]
+        public Task<byte[]> SerialReadAsync(byte maxBytes)
+        {
+            return UnsupportedSimpleProtocolCall<byte[]>(nameof(SerialReadAsync));
+        }
+
+        [Obsolete("SerialReadWrite is part of the TWN4 App/API SYSFUNC interface and is not a stock Simple Protocol PERIPH command. Use the API IO Simple Protocol functions where appropriate.")]
+        public Task<byte[]> SerialReadWriteAsync(byte[] writeData, byte readMaxBytes)
+        {
+            return UnsupportedSimpleProtocolCall<byte[]>(nameof(SerialReadWriteAsync));
+        }
+
+        [Obsolete("PlaySound is part of the TWN4 App/API SYSFUNC interface and is not a stock Simple Protocol command. Use BeepAsync instead.")]
+        public Task PlaySoundAsync(short duration)
+        {
+            return UnsupportedSimpleProtocolCall(nameof(PlaySoundAsync));
+        }
+
+        [Obsolete("PlaySound1 is part of the TWN4 App/API SYSFUNC interface and is not a stock Simple Protocol command. Use BeepAsync instead.")]
+        public Task PlaySound1Async(short duration)
+        {
+            return UnsupportedSimpleProtocolCall(nameof(PlaySound1Async));
+        }
+
+        [Obsolete("PlaySound2 is part of the TWN4 App/API SYSFUNC interface and is not a stock Simple Protocol command. Use BeepAsync instead.")]
+        public Task PlaySound2Async(short duration)
+        {
+            return UnsupportedSimpleProtocolCall(nameof(PlaySound2Async));
+        }
+
+        [Obsolete("PlaySound4 is part of the TWN4 App/API SYSFUNC interface and is not a stock Simple Protocol command. Use BeepAsync instead.")]
+        public Task PlaySound4Async(short tone1Duration, short tone2Duration)
+        {
+            return UnsupportedSimpleProtocolCall(nameof(PlaySound4Async));
+        }
+
+        [Obsolete("The TWN4 App/API PlayMelody SYSFUNC is not a stock Simple Protocol command. Use the high-level PlayMelody helper instead.")]
+        public Task PlayMelodyAsync(byte[] tones, byte[] durations)
+        {
+            return UnsupportedSimpleProtocolCall(nameof(PlayMelodyAsync));
+        }
+
+        [Obsolete("The TWN4 App/API PlayMelody SYSFUNC is not a stock Simple Protocol command. Use the high-level PlayMelody helper instead.")]
+        public Task PlayMelodyAsync(byte[] tones, byte[] durations, byte repeatCount)
+        {
+            return UnsupportedSimpleProtocolCall(nameof(PlayMelodyAsync));
+        }
+
+        /// <summary>
+        /// Compatibility alias for stopping a currently active beeper.
+        /// </summary>
+        public Task StopSoundAsync()
+        {
+            return BeepOffAsync();
+        }
+
+        private static Task UnsupportedSimpleProtocolCall(string methodName)
+        {
+            return Task.FromException(new NotSupportedException(methodName + " is not available in the stock TWN4 Simple Protocol."));
+        }
+
+        private static Task<T> UnsupportedSimpleProtocolCall<T>(string methodName)
+        {
+            return Task.FromException<T>(new NotSupportedException(methodName + " is not available in the stock TWN4 Simple Protocol."));
+        }
+
+        #endregion
 
         #endregion
     }
