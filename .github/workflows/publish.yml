@@ -126,6 +126,7 @@ jobs:
 
       - name: Push to NuGet.org
         id: nuget-push
+        continue-on-error: true
         env:
           OIDC_NUGET_API_KEY: ${{ steps.nuget-auth.outputs.NUGET_API_KEY }}
           FALLBACK_NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
@@ -140,13 +141,26 @@ jobs:
           else
             echo "Neither Trusted Publishing nor NUGET_API_KEY is available." >&2
             echo "auth_source=none" >> "$GITHUB_OUTPUT"
+            echo "error_slug=no-credential" >> "$GITHUB_OUTPUT"
             exit 1
           fi
 
-          dotnet nuget push ./nupkg/*.nupkg --api-key "$api_key" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          set +e
+          dotnet nuget push ./nupkg/*.nupkg --api-key "$api_key" --source https://api.nuget.org/v3/index.json --skip-duplicate 2>&1 | tee nuget-push.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            http_code=$(grep -Eo '(^|[^0-9])(401|403|409)([^0-9]|$)' nuget-push.log | grep -Eo '(401|403|409)' | head -n1 || true)
+            error_line=$(grep -Em1 'error|Error|Response status code' nuget-push.log || tail -n1 nuget-push.log || true)
+            error_slug=$(printf '%s' "$error_line" | tr -cs 'A-Za-z0-9._-' '-' | cut -c1-65)
+            echo "error_slug=${http_code:-no-http}-${error_slug:-unknown}" >> "$GITHUB_OUTPUT"
+          else
+            echo "error_slug=none" >> "$GITHUB_OUTPUT"
+          fi
+          exit "$status"
 
       - name: Push to GitHub Packages
         id: github-packages
+        if: always() && steps.pack.outcome == 'success'
         run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/c3rebro/index.json --skip-duplicate
 
       - name: Record release status
@@ -184,9 +198,12 @@ jobs:
           post_status "github-release" "${{ steps.github-release.outcome }}"
           post_status "nuget-auth" "${{ steps.nuget-auth.outcome }}"
           post_status "nuget-push-${{ steps.nuget-push.outputs.auth_source }}" "${{ steps.nuget-push.outcome }}"
+          if [ "${{ steps.nuget-push.outcome }}" != "success" ]; then
+            post_status "nuget-error-${{ steps.nuget-push.outputs.error_slug }}" "failure"
+          fi
           post_status "github-packages" "${{ steps.github-packages.outcome }}"
 
-          if [ "${{ job.status }}" = "success" ]; then
+          if [ "${{ steps.nuget-push.outcome }}" = "success" ] && [ "${{ steps.github-packages.outcome }}" = "success" ]; then
             overall="success"
           else
             overall="failure"
