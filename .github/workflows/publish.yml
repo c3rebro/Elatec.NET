@@ -1,4 +1,5 @@
 name: Publish NuGet Package
+# Release retries are idempotent: existing tags/releases/packages are reused or skipped.
 
 on:
   push:
