@@ -117,28 +117,15 @@ jobs:
             gh release create "$tag" --title "Elatec.NET $tag" --generate-notes
           fi
 
-      - name: Get NuGet.org token via Trusted Publishing (OIDC)
+      - name: NuGet login (OIDC to temporary API key)
         id: nuget-auth
-        shell: bash
-        run: |
-          oidc_token=$(curl -sS \
-            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=nuget.org" | jq -r .value)
-          nuget_token=$(curl -sS -X POST \
-            -H "Authorization: Bearer ${oidc_token}" \
-            "https://api.nuget.org/v1/trustedpublisher/exchange" | jq -r .token)
-
-          if [ -z "$nuget_token" ] || [ "$nuget_token" = "null" ]; then
-            echo "NuGet.org trusted-publishing token exchange failed." >&2
-            exit 1
-          fi
-
-          echo "::add-mask::${nuget_token}"
-          echo "token=${nuget_token}" >> "$GITHUB_OUTPUT"
+        uses: NuGet/login@v1
+        with:
+          user: c3rebro
 
       - name: Push to NuGet.org
         id: nuget-push
-        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ steps.nuget-auth.outputs.token }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ steps.nuget-auth.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Push to GitHub Packages
         id: github-packages
