@@ -6,10 +6,11 @@ on:
       - master
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   publish:
-    if: github.ref_type == 'tag' || startsWith(github.event.head_commit.message, 'Release v')
+    if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag' || startsWith(github.event.head_commit.message, 'Release v')
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -117,6 +118,13 @@ jobs:
             gh release create "$tag" --title "Elatec.NET $tag" --generate-notes
           fi
 
+      - name: Upload package to GitHub release
+        id: release-asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: gh release upload "${{ steps.release.outputs.tag }}" ./nupkg/*.nupkg --clobber
+
       - name: NuGet login (OIDC to temporary API key)
         id: nuget-auth
         continue-on-error: true
@@ -160,6 +168,7 @@ jobs:
 
       - name: Push to GitHub Packages
         id: github-packages
+        continue-on-error: true
         if: always() && steps.pack.outcome == 'success'
         run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/c3rebro/index.json --skip-duplicate
 
@@ -196,6 +205,7 @@ jobs:
           fi
           post_status "tag" "${{ steps.tag.outcome }}"
           post_status "github-release" "${{ steps.github-release.outcome }}"
+          post_status "release-asset" "${{ steps.release-asset.outcome }}"
           post_status "nuget-auth" "${{ steps.nuget-auth.outcome }}"
           post_status "nuget-push-${{ steps.nuget-push.outputs.auth_source }}" "${{ steps.nuget-push.outcome }}"
           if [ "${{ steps.nuget-push.outcome }}" != "success" ]; then
@@ -203,7 +213,7 @@ jobs:
           fi
           post_status "github-packages" "${{ steps.github-packages.outcome }}"
 
-          if [ "${{ steps.nuget-push.outcome }}" = "success" ] && [ "${{ steps.github-packages.outcome }}" = "success" ]; then
+          if [ "${{ steps.release-asset.outcome }}" = "success" ]; then
             overall="success"
           else
             overall="failure"
@@ -212,4 +222,4 @@ jobs:
             "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
             -f state="$overall" \
             -f context="release/${{ steps.release.outputs.tag }}" \
-            -f description="release job: ${{ job.status }}"
+            -f description="GitHub release complete; registry publishing reported separately"
