@@ -119,13 +119,31 @@ jobs:
 
       - name: NuGet login (OIDC to temporary API key)
         id: nuget-auth
+        continue-on-error: true
         uses: NuGet/login@v1
         with:
           user: c3rebro
 
       - name: Push to NuGet.org
         id: nuget-push
-        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ steps.nuget-auth.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        env:
+          OIDC_NUGET_API_KEY: ${{ steps.nuget-auth.outputs.NUGET_API_KEY }}
+          FALLBACK_NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        shell: bash
+        run: |
+          if [ -n "$OIDC_NUGET_API_KEY" ]; then
+            api_key="$OIDC_NUGET_API_KEY"
+            echo "auth_source=oidc" >> "$GITHUB_OUTPUT"
+          elif [ -n "$FALLBACK_NUGET_API_KEY" ]; then
+            api_key="$FALLBACK_NUGET_API_KEY"
+            echo "auth_source=repository-secret" >> "$GITHUB_OUTPUT"
+          else
+            echo "Neither Trusted Publishing nor NUGET_API_KEY is available." >&2
+            echo "auth_source=none" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          dotnet nuget push ./nupkg/*.nupkg --api-key "$api_key" --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       - name: Push to GitHub Packages
         id: github-packages
@@ -165,7 +183,7 @@ jobs:
           post_status "tag" "${{ steps.tag.outcome }}"
           post_status "github-release" "${{ steps.github-release.outcome }}"
           post_status "nuget-auth" "${{ steps.nuget-auth.outcome }}"
-          post_status "nuget-push" "${{ steps.nuget-push.outcome }}"
+          post_status "nuget-push-${{ steps.nuget-push.outputs.auth_source }}" "${{ steps.nuget-push.outcome }}"
           post_status "github-packages" "${{ steps.github-packages.outcome }}"
 
           if [ "${{ job.status }}" = "success" ]; then
