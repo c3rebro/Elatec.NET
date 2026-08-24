@@ -2,25 +2,60 @@ name: Publish NuGet Package
 
 on:
   push:
+    branches:
+      - master
     tags:
       - 'v*'
 
 jobs:
   publish:
+    if: github.ref_type == 'tag' || startsWith(github.event.head_commit.message, 'Release v')
     runs-on: ubuntu-latest
     permissions:
       packages: write
-      contents: read
+      contents: write
       id-token: write  # required for OIDC trusted publishing to NuGet.org
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: release
+        shell: bash
+        run: |
+          version=$(grep -oPm1 '(?<=<AssemblyVersion>)[^<]+' Elatec.NET.csproj)
+          if [ -z "$version" ]; then
+            echo "Could not determine AssemblyVersion from Elatec.NET.csproj" >&2
+            exit 1
+          fi
+
+          expected_tag="v${version}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME}"
+            if [ "$tag" != "$expected_tag" ]; then
+              echo "Tag $tag does not match project version $expected_tag" >&2
+              exit 1
+            fi
+          else
+            tag="$expected_tag"
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore Elatec.NET.sln
+
+      - name: Test
+        run: dotnet test Elatec.NET.sln --no-restore
 
       - name: Pack
         run: dotnet pack Elatec.NET.csproj --configuration Release --output ./nupkg
@@ -42,3 +77,33 @@ jobs:
 
       - name: Push to GitHub Packages
         run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/c3rebro/index.json --skip-duplicate
+
+      - name: Create release tag
+        if: github.ref_type != 'tag'
+        shell: bash
+        run: |
+          tag="${{ steps.release.outputs.tag }}"
+          existing=$(git ls-remote --tags origin "refs/tags/${tag}" | cut -f1)
+
+          if [ -n "$existing" ]; then
+            if [ "$existing" != "$GITHUB_SHA" ]; then
+              echo "Tag $tag already exists at $existing instead of $GITHUB_SHA" >&2
+              exit 1
+            fi
+            echo "Tag $tag already exists at this commit."
+          else
+            git tag "$tag" "$GITHUB_SHA"
+            git push origin "$tag"
+          fi
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag="${{ steps.release.outputs.tag }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists."
+          else
+            gh release create "$tag" --title "Elatec.NET $tag" --generate-notes
+          fi
