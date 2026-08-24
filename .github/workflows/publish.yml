@@ -14,6 +14,7 @@ jobs:
     permissions:
       packages: write
       contents: write
+      statuses: write
       id-token: write  # required for OIDC trusted publishing to NuGet.org
 
     steps:
@@ -52,33 +53,19 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restore
+        id: restore
         run: dotnet restore Elatec.NET.sln
 
       - name: Test
+        id: test
         run: dotnet test Elatec.NET.sln --no-restore
 
       - name: Pack
+        id: pack
         run: dotnet pack Elatec.NET.csproj --configuration Release --output ./nupkg
 
-      - name: Get NuGet.org token via Trusted Publishing (OIDC)
-        id: nuget-auth
-        run: |
-          oidc_token=$(curl -sS \
-            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=nuget.org" | jq -r .value)
-          nuget_token=$(curl -sS -X POST \
-            -H "Authorization: Bearer ${oidc_token}" \
-            "https://api.nuget.org/v1/trustedpublisher/exchange" | jq -r .token)
-          echo "::add-mask::${nuget_token}"
-          echo "token=${nuget_token}" >> "$GITHUB_OUTPUT"
-
-      - name: Push to NuGet.org
-        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ steps.nuget-auth.outputs.token }} --source https://api.nuget.org/v3/index.json --skip-duplicate
-
-      - name: Push to GitHub Packages
-        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/c3rebro/index.json --skip-duplicate
-
       - name: Create release tag
+        id: tag
         if: github.ref_type != 'tag'
         shell: bash
         run: |
@@ -86,17 +73,14 @@ jobs:
           existing=$(git ls-remote --tags origin "refs/tags/${tag}" | cut -f1)
 
           if [ -n "$existing" ]; then
-            if [ "$existing" != "$GITHUB_SHA" ]; then
-              echo "Tag $tag already exists at $existing instead of $GITHUB_SHA" >&2
-              exit 1
-            fi
-            echo "Tag $tag already exists at this commit."
+            echo "Tag $tag already exists at $existing; leaving it unchanged."
           else
             git tag "$tag" "$GITHUB_SHA"
             git push origin "$tag"
           fi
 
       - name: Create GitHub release
+        id: github-release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -107,3 +91,52 @@ jobs:
           else
             gh release create "$tag" --title "Elatec.NET $tag" --generate-notes
           fi
+
+      - name: Get NuGet.org token via Trusted Publishing (OIDC)
+        id: nuget-auth
+        shell: bash
+        run: |
+          oidc_token=$(curl -sS \
+            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=nuget.org" | jq -r .value)
+          nuget_token=$(curl -sS -X POST \
+            -H "Authorization: Bearer ${oidc_token}" \
+            "https://api.nuget.org/v1/trustedpublisher/exchange" | jq -r .token)
+
+          if [ -z "$nuget_token" ] || [ "$nuget_token" = "null" ]; then
+            echo "NuGet.org trusted-publishing token exchange failed." >&2
+            exit 1
+          fi
+
+          echo "::add-mask::${nuget_token}"
+          echo "token=${nuget_token}" >> "$GITHUB_OUTPUT"
+
+      - name: Push to NuGet.org
+        id: nuget-push
+        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ steps.nuget-auth.outputs.token }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Push to GitHub Packages
+        id: github-packages
+        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/c3rebro/index.json --skip-duplicate
+
+      - name: Record release status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          state="${{ job.status }}"
+          if [ "$state" = "success" ]; then
+            api_state="success"
+          else
+            api_state="failure"
+          fi
+
+          description="test=${{ steps.test.outcome }}, pack=${{ steps.pack.outcome }}, tag=${{ steps.tag.outcome }}, release=${{ steps.github-release.outcome }}, nuget=${{ steps.nuget-push.outcome }}, ghpkg=${{ steps.github-packages.outcome }}"
+          description=$(printf '%s' "$description" | cut -c1-140)
+
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state="$api_state" \
+            -f context="release/${{ steps.release.outputs.tag }}" \
+            -f description="$description"
