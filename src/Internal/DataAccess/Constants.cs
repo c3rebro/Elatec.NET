@@ -664,4 +664,88 @@ namespace Elatec.NET
         MifareNfc = 11,
         Legic63 = 12,
     }
+
+    /// <summary>
+    /// Key types supported by the NXP SAM AV1/AV2 host authentication (DESF_KEYTYPE_3DES, DESF_KEYTYPE_AES).
+    /// Same values as the DESFire key types (see <see cref="DESFireKeyType"/>); the SAM documentation only lists 3DES and AES.
+    /// </summary>
+    public enum SamAvxKeyType : byte
+    {
+        TripleDes = 0,
+        Aes = 2
+    }
+
+    /// <summary>
+    /// Contact card slots addressable by the ISO7816 API (CHANNEL_SAM1 to CHANNEL_SAM4 and CHANNEL_SC1).
+    /// </summary>
+    /// <remarks>
+    /// Not every reader provides every slot, some variants only offer <see cref="Iso7816Channel.Sam1"/>.
+    /// <see cref="Iso7816Channel.Sam1"/> (0x20) and <see cref="Iso7816Channel.Sc1"/> (0x28) match the channel values used in the vendor's Simple Protocol
+    /// examples, the remaining values are taken from the firmware header (twn4.sys.h).
+    /// </remarks>
+    public enum Iso7816Channel : byte
+    {
+        Sam1 = 0x20,
+        Sam2 = 0x21,
+        Sam3 = 0x22,
+        Sam4 = 0x23,
+        Sc1 = 0x28
+    }
+
+    /// <summary>
+    /// Operating voltage used when activating a contact card (ISO7816_POWERSELECT_*).
+    /// Voltage selection is only available on TWN4 SmartCard readers.
+    /// </summary>
+    public enum Iso7816PowerSelect : byte
+    {
+        Auto = 0,
+        V5 = 1,
+        V3 = 2,
+        V1_8 = 3
+    }
+
+    /// <summary>
+    /// Transmission protocol of a contact card (ISO7816_PROTOCOL_*).
+    /// </summary>
+    public enum Iso7816Protocol : byte
+    {
+        T0 = 0,
+        T1 = 1
+    }
+
+    /// <summary>
+    /// Clock frequency applied to a contact card (ISO7816_FREQUENCY_*).
+    /// </summary>
+    public enum Iso7816Frequency : byte
+    {
+        Hz1000000 = 0,
+        Hz1250000 = 1,
+        Hz1875000 = 2,
+        Hz2500000 = 3,
+        Hz3750000 = 4,
+        Hz5000000 = 5,
+        Hz7500000 = 6,
+        Hz15000000 = 7
+    }
+
+    /// <summary>
+    /// Physical state of a contact card slot (bmICCStatus of the CCID slot status).
+    /// </summary>
+    public enum Iso7816IccStatus : byte
+    {
+        PresentAndActive = 0,
+        PresentAndInactive = 1,
+        NoIccPresent = 2
+    }
+
+    /// <summary>
+    /// Clock status of a contact card slot (bClockStatus of the CCID slot status).
+    /// </summary>
+    public enum Iso7816ClockStatus : byte
+    {
+        Running = 0,
+        StoppedLow = 1,
+        StoppedHigh = 2,
+        StoppedUnknownState = 3
+    }
 }

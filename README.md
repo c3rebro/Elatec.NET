@@ -217,6 +217,28 @@ usage example:
         }
     }
 
+## Writing a key to a MIFARE SAM AV3
+
+A SAM in a slot of the reader is reached with the ISO7816 functions (`ISO7816_IccPowerOnAsync`, `ISO7816_ExchangeAPDUAsync`, ...).
+`SamAv3HostSession` adds the NXP host protocol on top: AES host authentication and encrypted, MACed commands.
+
+    await reader.ISO7816_IccPowerOnAsync(Iso7816Channel.Sam1);
+    using (var sam = new SamAv3HostSession(new Twn4SamApduChannel(reader, Iso7816Channel.Sam1)))
+    {
+        await sam.ActivateSamAsync(0, 0, new byte[16]);       // only for a new, unactivated SAM
+        await sam.AuthenticateHostAsync(0, 0, new byte[16]);  // master key, all zero on a new SAM (NXP UM11316)
+        await sam.ChangeKeyEntryAsync(1, SamAv3KeyEntry.CreateAes128PiccKey(newKey, 0));
+    }
+    await reader.ISO7816_IccPowerOffAsync(Iso7816Channel.Sam1);
+
+What is verified and what is not:
+
+* Host authentication, `SAM_ChangeKeyEntry` and the secure messaging are checked against the published examples of NXP application note AN12704 (byte for byte, including the session keys).
+* `ActivateSamAsync` (`SAM_LockUnlock`, activation) is **not** described in the AV3 application notes. It follows an open-source SAM AV2 library and the same three-pass authentication; treat it as unverified on an AV3 SAM and as irreversible.
+* Only AES-128 keys, full protection and logical channel 0 are supported. SAM AV1 and AV2 are not supported.
+* Nothing has been run against a real reader and SAM yet.
+* Writing key entry 0 (the SAM master key) and settings that lock an entry for good require an explicit opt-in (`allowMasterKeyChange`, `allowIrreversibleLock`), because a mistake there can make the SAM unmanageable.
+
 ## Contributors ✨
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->

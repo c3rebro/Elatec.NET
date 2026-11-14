@@ -92,7 +92,7 @@ namespace Elatec.NET
             }
             else
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -118,7 +118,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -138,7 +138,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -158,7 +158,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -184,7 +184,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -212,7 +212,7 @@ namespace Elatec.NET
             }
             else
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -242,7 +242,7 @@ namespace Elatec.NET
             }
             else
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -303,7 +303,7 @@ namespace Elatec.NET
             }
             else
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -362,11 +362,11 @@ namespace Elatec.NET
                 var success = parser.ParseBool();
 
                 if (!success)
-                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                    throw ReaderException.For(ReaderError.AccessDenied);
 
                 var chunk = parser.ParseVarByteArray();
                 if (chunk.Length != chunkLen)
-                    throw new ReaderException("Unexpected DESFire_ReadData length. Expected " + chunkLen + " bytes, got " + chunk.Length + " bytes.", null);
+                    throw new ReaderException("Unexpected DESFire_ReadData length. Expected " + chunkLen + " bytes, got " + chunk.Length + " bytes.", ReaderError.Data);
 
                 Array.Copy(chunk, 0, data, dstIndex, chunkLen);
 
@@ -437,7 +437,7 @@ namespace Elatec.NET
                 var success = parser.ParseBool();
 
                 if (!success)
-                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                    throw ReaderException.For(ReaderError.AccessDenied);
 
                 srcIndex += chunkLen;
                 remaining -= chunkLen;
@@ -464,7 +464,7 @@ namespace Elatec.NET
                 return parser.ParseUInt32();
             }
 
-            throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            throw ReaderException.For(ReaderError.AccessDenied);
         }
 
         /// <summary>
@@ -486,7 +486,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -509,7 +509,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -532,7 +532,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -554,7 +554,7 @@ namespace Elatec.NET
             }
             else
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -572,7 +572,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -601,7 +601,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
         /// <summary>
@@ -647,7 +647,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
         /// <summary>
@@ -669,7 +669,7 @@ namespace Elatec.NET
                 }
                 else
                 {
-                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotSupported), null);
+                    throw ReaderException.For(ReaderError.NotSupported);
                 }
             }
         }
@@ -690,7 +690,7 @@ namespace Elatec.NET
 
                 if (!success)
                 {
-                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                    throw ReaderException.For(ReaderError.AccessDenied);
                 }
             }
         }
@@ -708,7 +708,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -725,7 +725,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -747,7 +747,7 @@ namespace Elatec.NET
                 return parser.ParseVarByteArray();
             }
 
-            throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            throw ReaderException.For(ReaderError.AccessDenied);
         }
 
         /// <summary>
@@ -768,7 +768,7 @@ namespace Elatec.NET
                 return parser.ParseByte();
             }
 
-            throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            throw ReaderException.For(ReaderError.AccessDenied);
         }
         /// <summary>
         /// 
@@ -790,7 +790,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -824,7 +824,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -851,7 +851,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -868,7 +868,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -885,7 +885,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -910,7 +910,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -933,7 +933,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -965,7 +965,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -996,7 +996,7 @@ namespace Elatec.NET
                 return parser.ParseVarByteArray();
             }
 
-            throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+            throw ReaderException.For(ReaderError.AccessDenied);
         }
 
         /// <summary>
@@ -1024,7 +1024,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
 
@@ -1042,7 +1042,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.AccessDenied), null);
+                throw ReaderException.For(ReaderError.AccessDenied);
             }
         }
         #endregion

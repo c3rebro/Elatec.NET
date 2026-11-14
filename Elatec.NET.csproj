@@ -21,7 +21,14 @@
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<RepositoryUrl>$(Projekt-URL)</RepositoryUrl>
 	<PackageTags>rfid; elatec; twn4</PackageTags>
-	<PackageReleaseNotes>v0.6.4 Fixed: Restores the TWN4 PERIPH Simple Protocol mapping (API 0x04), including Beep, LED and GPIO commands. PlayMelody/sample compatibility is restored, App/API-only SYSFUNC wrappers no longer send misleading Simple Protocol frames, and compatibility shims remain buildable for net46. Fixes #24.
+	<PackageReleaseNotes>v0.7.0-beta.1 PRE-RELEASE. Added: ISO7816 contact card API (Simple Protocol 0x10xx) to talk to SAMs and contact cards: ISO7816_GetSlotStatusAsync, ISO7816_IccPowerOnAsync, ISO7816_IccPowerOffAsync, ISO7816_SetCommSettingsAsync, ISO7816_TransceiveAsync, ISO7816_ExchangeAPDUAsync, ISO7816_T0_TPDUAsync, ISO7816_CheckWellKnownCardsAsync, with Iso7816Channel (Sam1-Sam4, Sc1) and result models.
+      Added: SAM AV1/AV2 API (0x22xx): SAMAVx_AuthenticateHostAsync (byte and hex key overloads) and SAMAVx_GetKeyEntryAsync.
+      Added: MIFARE SAM AV3 host protocol (namespace Elatec.NET.Sam): SamAv3HostSession with AES-128 host authentication (full protection), encrypted and MACed commands (ExecuteSecureAsync) and SAM_ChangeKeyEntry (ChangeKeyEntryAsync) to write AES-128 key entries to a SAM. Also SamAv3KeyEntry, ISamApduChannel, Twn4SamApduChannel and SamException. Authentication, key writing and secure messaging are verified against the examples of NXP AN12704.
+      Added: SamAv3HostSession.ActivateSamAsync (SAM_LockUnlock, activation of a new SAM). UNVERIFIED on a SAM AV3: the command is not described in the available NXP documents, it follows an open-source SAM AV2 library. Assume that activation is irreversible.
+      Safety: writing key entry 0 (SAM master key) and key entry settings that lock an entry for good require an explicit opt-in (allowMasterKeyChange, allowIrreversibleLock).
+      Limitations: AES-128 keys only, full protection, logical channel 0. SAM AV1/AV2 host protocols are not supported. Not yet tested with a real reader and SAM. API may still change before 0.7.0.
+      Docs: README section "Writing a key to a MIFARE SAM AV3", API inventory in CONTRIBUTING/ROADMAP.md.
+v0.6.4 Fixed: Restores the TWN4 PERIPH Simple Protocol mapping (API 0x04), including Beep, LED and GPIO commands. PlayMelody/sample compatibility is restored, App/API-only SYSFUNC wrappers no longer send misleading Simple Protocol frames, and compatibility shims remain buildable for net46. Fixes #24.
 v0.6.3 Fix: MifareDesfire_ChangeKeyAsync now uses the actual key byte length instead of the hardcoded 16-byte constant, enabling cross-type key changes (e.g. 3DES→3K3DES) without UnusedParameters errors.
 v0.6.2 Fix: MifareDesfire_AuthenticateAsync now uses the actual key byte length instead of the hardcoded 16-byte constant, enabling correct 3K3DES authentication with 24-byte keys.
 v0.6.1 Added an async lock field SemaphoreSlim _transportLock to TWN4ReaderDevice to serialize access to the transport.
@@ -42,7 +49,7 @@ v0.4.1 Fix: Missing CryptoMode byte in WriteDataAsync()
 v0.4 Added DisconnectAsync()
 v0.3 Incompatible changes: changed bytepattern of CardType
 v0.2 take legic capable reader "specialties" into account. See Readme.MD for further details</PackageReleaseNotes>
-	<AssemblyVersion>0.6.4</AssemblyVersion>
+	<AssemblyVersion>0.7.0-beta.1</AssemblyVersion>
 	<FileVersion>$(AssemblyVersion)</FileVersion>
 	<PackageLicenseFile>LICENSE</PackageLicenseFile>
   <IncludeContentInPack>true</IncludeContentInPack>

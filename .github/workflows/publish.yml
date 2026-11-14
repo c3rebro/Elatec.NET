@@ -116,7 +116,12 @@ jobs:
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "Release $tag already exists."
           else
-            gh release create "$tag" --title "Elatec.NET $tag" --generate-notes
+            # A version with a suffix (e.g. 0.7.0-beta.1) is a pre-release, it must not become the "Latest" release.
+            prerelease_flag=""
+            case "$tag" in
+              *-*) prerelease_flag="--prerelease" ;;
+            esac
+            gh release create "$tag" --title "Elatec.NET $tag" --generate-notes $prerelease_flag
           fi
 
       - name: Upload package to GitHub release
