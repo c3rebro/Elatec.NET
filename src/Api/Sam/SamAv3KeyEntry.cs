@@ -1,3 +1,5 @@
+#pragma warning disable S2360 // Optional parameters are intended: callers skip some of them by name (e.g. le: 0, maxRxByteCount: 128), which overloads cannot express.
+#pragma warning disable S2339 // The constants are values fixed by the NXP SAM specification, they do not change between releases.
 using System;
 
 namespace Elatec.NET.Sam
@@ -135,15 +137,36 @@ namespace Elatec.NET.Sam
         /// </summary>
         internal byte[] ToCommandData()
         {
-            if (KeyA == null) throw new ArgumentException("Key A is required.", nameof(KeyA));
+            if (KeyA == null)
+            {
+                throw new ArgumentException("Key A is required.", nameof(KeyA));
+            }
+
             RequireKeyLength(KeyA, "Key A");
-            if (KeyB != null) RequireKeyLength(KeyB, "Key B");
-            if (KeyC != null) RequireKeyLength(KeyC, "Key C");
-            if (DfAid == null || DfAid.Length != 3) throw new ArgumentException("DF_AID must be 3 bytes.", nameof(DfAid));
+            if (KeyB != null)
+            {
+                RequireKeyLength(KeyB, "Key B");
+            }
+
+            if (KeyC != null)
+            {
+                RequireKeyLength(KeyC, "Key C");
+            }
+
+            if (DfAid == null || DfAid.Length != 3)
+            {
+                throw new ArgumentException("DF_AID must be 3 bytes.", nameof(DfAid));
+            }
+
             if (RefNoKuc > 15 && RefNoKuc != NoKeyUsageCounter)
+            {
                 throw new ArgumentException("RefNoKUC must be 0 to 15, or 0xFF if no key usage counter is used.", nameof(RefNoKuc));
+            }
+
             if ((Set & SetKeyTypeMask) != SetKeyTypeAes128)
+            {
                 throw new NotSupportedException("Only AES-128 key entries are supported (SET key type bits 3 to 5 must be 100b).");
+            }
 
             var keyB = KeyB ?? KeyA;
             var versionB = KeyB != null ? VersionB : VersionA;
@@ -165,13 +188,16 @@ namespace Elatec.NET.Sam
             data[offset++] = VersionA;
             data[offset++] = versionB;
             data[offset++] = versionC;
-            data[offset++] = ExtSet;
+            data[offset] = ExtSet;
             return data;
         }
 
         private static void RequireKeyLength(byte[] key, string name)
         {
-            if (key.Length != 16) throw new ArgumentException(name + " must be 16 bytes (AES-128).");
+            if (key.Length != 16)
+            {
+                throw new ArgumentException(name + " must be 16 bytes (AES-128).");
+            }
         }
 
         private static void Append(byte[] target, ref int offset, byte[] source)

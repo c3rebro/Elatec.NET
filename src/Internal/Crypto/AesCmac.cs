@@ -12,10 +12,16 @@ namespace Elatec.NET
 
         public static byte[] EncryptCbc(byte[] key, byte[] iv, byte[] data)
         {
-            if (data.Length % BlockSize != 0) throw new ArgumentException("Data must be a multiple of the AES block size.", nameof(data));
+            if (data.Length % BlockSize != 0)
+            {
+                throw new ArgumentException("Data must be a multiple of the AES block size.", nameof(data));
+            }
 
             using (var aes = Aes.Create())
             {
+                // AES-CBC is what NXP AN12704 prescribes for the encrypted SAM communication, and CBC-MAC is the core of AES-CMAC (RFC 4493).
+                // Every message is authenticated with that CMAC, so the mode does not have to provide integrity itself.
+                // nosemgrep
                 aes.Mode = CipherMode.CBC;
                 aes.Padding = PaddingMode.None;
                 aes.Key = key;
@@ -29,7 +35,10 @@ namespace Elatec.NET
 
         public static byte[] DecryptCbc(byte[] key, byte[] iv, byte[] data)
         {
-            if (data.Length % BlockSize != 0) throw new ArgumentException("Data must be a multiple of the AES block size.", nameof(data));
+            if (data.Length % BlockSize != 0)
+            {
+                throw new ArgumentException("Data must be a multiple of the AES block size.", nameof(data));
+            }
 
             using (var aes = Aes.Create())
             {
@@ -49,7 +58,11 @@ namespace Elatec.NET
         /// </summary>
         public static byte[] EncryptBlock(byte[] key, byte[] block)
         {
-            if (block.Length != BlockSize) throw new ArgumentException("Exactly one AES block is required.", nameof(block));
+            if (block.Length != BlockSize)
+            {
+                throw new ArgumentException("Exactly one AES block is required.", nameof(block));
+            }
+
             return EncryptCbc(key, new byte[BlockSize], block);
         }
     }
@@ -61,15 +74,26 @@ namespace Elatec.NET
     {
         public static byte[] Compute(byte[] key, byte[] message)
         {
-            if (key == null) throw new ArgumentNullException(nameof(key));
-            if (message == null) throw new ArgumentNullException(nameof(message));
+            if (key == null)
+            {
+                throw new ArgumentNullException(nameof(key));
+            }
+
+            if (message == null)
+            {
+                throw new ArgumentNullException(nameof(message));
+            }
 
             var l = AesHelper.EncryptBlock(key, new byte[AesHelper.BlockSize]);
             var k1 = Double(l);
             var k2 = Double(k1);
 
             var blockCount = (message.Length + AesHelper.BlockSize - 1) / AesHelper.BlockSize;
-            if (blockCount == 0) blockCount = 1;
+            if (blockCount == 0)
+            {
+                blockCount = 1;
+            }
+
             var lastBlockComplete = message.Length != 0 && message.Length % AesHelper.BlockSize == 0;
 
             // Message with the last block already masked with K1 (complete) or padded and masked with K2 (incomplete).

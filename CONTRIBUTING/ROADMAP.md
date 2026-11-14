@@ -34,11 +34,13 @@ This note inventories the public surface of `TWN4ReaderDevice` grouped by protoc
 - Data/value operations: `MifareDesfire_ReadDataAsync`, `MifareDesfire_WriteDataAsync`, `MifareDesfire_ReadRecordsAsync`, `MifareDesfire_WriteRecordAsync`, `MifareDesfire_ClearRecordFileAsync`, `MifareDesfire_GetValueAsync`, `MifareDesfire_CreditAsync`, `MifareDesfire_DebitAsync`, `MifareDesfire_LimitedCreditAsync`, `MifareDesfire_GetFreeMemoryAsync`, `MifareDesfire_FormatTagAsync`, `MifareDesfire_CommitTransactionAsync`, `MifareDesfire_AbortTransactionAsync`, `MifareDesfire_GetUidAsync` (with optional buffer size), `MifareDesfire_GetVersionAsync`.
 
 ### SAM AV3 host protocol (`Elatec.NET.Sam`, on top of API_ISO7816)
+
 - `SamAv3HostSession`: `AuthenticateHostAsync` (3-pass AES-128 host authentication, full protection), `ChangeKeyEntryAsync` (SAM_ChangeKeyEntry, AES-128 entries, guards for the master key entry and irreversible locks), `ExecuteSecureAsync` (any command with encryption and CMAC), `ActivateSamAsync` (SAM_LockUnlock activation of a new SAM).
 - `SamAv3KeyEntry` (with `CreateAes128HostKey` / `CreateAes128PiccKey`), `ISamApduChannel` with `Twn4SamApduChannel` for a SAM in a TWN4 slot, `SamException`.
 - Verified against the examples of NXP AN12704 (tables 2 to 5) and RFC 4493. `ActivateSamAsync` has no NXP reference in the available documents (follows an open-source SAM AV2 library). Not covered: SAM AV1/AV2, other key types, plain/MAC host modes, other SAM_LockUnlock modes, reading key entries.
 
 ### ISO7816 contact cards and SAMs (API_ISO7816, 0x10xx)
+
 - Slot and card lifecycle: `ISO7816_GetSlotStatusAsync`, `ISO7816_IccPowerOnAsync` (returns the ATR), `ISO7816_IccPowerOffAsync`, `ISO7816_SetCommSettingsAsync`, `ISO7816_CheckWellKnownCardsAsync`.
 - Data exchange: `ISO7816_ExchangeAPDUAsync` (short and extended APDUs), `ISO7816_T0_TPDUAsync`, and transparent `ISO7816_TransceiveAsync` (e.g. for a PPS request).
 - Slots are addressed via `Iso7816Channel` (`Sam1` to `Sam4`, `Sc1`). This is the way to talk to SAMs that the AV1/AV2-only `SAMAVx_*` functions do not cover, e.g. a SAM AV3.
@@ -50,6 +52,7 @@ This note inventories the public surface of `TWN4ReaderDevice` grouped by protoc
 - Multi-tag flow: `ISO14443A_SearchMultiTagAsync`, `ISO14443A_SelectTagAsync`, `ISO14443A_Reselect`.
 
 ### SAM AV1/AV2 (API_SAMAVX, 0x22xx)
+
 - Host authentication: `SAMAVx_AuthenticateHostAsync` (byte and hex-string key overloads, 3DES/AES via `SamAvxKeyType`, crypto environment 0-3).
 - Key entry query: `SAMAVx_GetKeyEntryAsync` returning `SamAvxKeyEntry`.
 - Requires a NXP SAM AV1/AV2 card in one of the reader's SAM slots. The SAM-based Ultralight C helpers live in the MIFARE Ultralight section above.

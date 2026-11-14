@@ -1,3 +1,4 @@
+#pragma warning disable S2360 // Optional parameters are intended: callers skip some of them by name (e.g. le: 0, maxRxByteCount: 128), which overloads cannot express.
 using System;
 
 namespace Elatec.NET.Sam
@@ -10,7 +11,9 @@ namespace Elatec.NET.Sam
         public SamApdu(byte cla, byte ins, byte p1, byte p2, byte[] data = null, byte? le = null)
         {
             if (data != null && data.Length > byte.MaxValue)
+            {
                 throw new ArgumentException("The data field of a short APDU must not exceed 255 bytes.", nameof(data));
+            }
 
             Cla = cla;
             Ins = ins;

@@ -16,9 +16,9 @@ namespace Elatec.NET.Tests
     /// </summary>
     public class SamAv3KnownAnswerTests
     {
-        internal static byte[] Hex(string hex)
+        internal static byte[] Hex(string hexString)
         {
-            return ByteArrayConverter.GetBytesFrom(hex);
+            return ByteArrayConverter.GetBytesFrom(hexString);
         }
 
         internal static string ToHex(byte[] bytes)

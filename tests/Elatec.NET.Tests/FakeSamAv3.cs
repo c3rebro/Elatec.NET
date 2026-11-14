@@ -97,15 +97,27 @@ namespace Elatec.NET.Tests
                     byte[] keyData;
                     if (command.Ins == InsAuthenticateHost)
                     {
-                        if (!IsActivated) return new SamApduResponse(null, 0x6985);
-                        if (command.P1 != 0x00 || command.Data.Length != 3 || command.Data[2] != 0x02) return new SamApduResponse(null, 0x6A86);
-                        _modeByte = 0x02;
+                        if (!IsActivated)
+                            {
+                                return new SamApduResponse(null, 0x6985);
+                            }
+
+                            if (command.P1 != 0x00 || command.Data.Length != 3 || command.Data[2] != 0x02)
+                            {
+                                return new SamApduResponse(null, 0x6A86);
+                            }
+
+                            _modeByte = 0x02;
                     }
                     else
                     {
                         // SAM_LockUnlock, activation: [KeyNo][KeyVersion][MaxChainBlocks, 3 bytes]
-                        if (command.P1 != 0x03 || command.Data.Length != 5) return new SamApduResponse(null, 0x6A86);
-                        _modeByte = 0x03;
+                        if (command.P1 != 0x03 || command.Data.Length != 5)
+                            {
+                                return new SamApduResponse(null, 0x6A86);
+                            }
+
+                            _modeByte = 0x03;
                     }
 
                     if (!_hostKeys.TryGetValue(command.Data[0] + ":" + command.Data[1], out keyData))
@@ -121,14 +133,20 @@ namespace Elatec.NET.Tests
                 }
                 case 1:
                 {
-                    if (command.Ins != _stageIns || command.Data.Length != 20) return Fail();
+                    if (command.Ins != _stageIns || command.Data.Length != 20)
+                        {
+                            return Fail();
+                        }
 
-                    var mac = SamAv3Crypto.Slice(command.Data, 0, 8);
+                        var mac = SamAv3Crypto.Slice(command.Data, 0, 8);
                     var rnd1 = SamAv3Crypto.Slice(command.Data, 8, 12);
                     var modeBlock = new byte[] { _modeByte, 0x00, 0x00, 0x00 };
-                    if (!SamAv3Crypto.FixedTimeEquals(mac, SamAv3Crypto.Cmac8(_kx, SamAv3Crypto.Concat(_rnd2, modeBlock)))) return Fail();
+                    if (!SamAv3Crypto.FixedTimeEquals(mac, SamAv3Crypto.Cmac8(_kx, SamAv3Crypto.Concat(_rnd2, modeBlock))))
+                        {
+                            return Fail();
+                        }
 
-                    _kxe = AesHelper.EncryptBlock(_kx, SamAv3Crypto.Concat(
+                        _kxe = AesHelper.EncryptBlock(_kx, SamAv3Crypto.Concat(
                         SamAv3Crypto.Slice(rnd1, 7, 5), SamAv3Crypto.Slice(_rnd2, 7, 5), SamAv3Crypto.Xor(rnd1, 0, _rnd2, 0, 5), new byte[] { 0x91 }));
                     _rndB = RandomBytes(16);
                     _stage = 2;
@@ -139,13 +157,19 @@ namespace Elatec.NET.Tests
                 }
                 case 2:
                 {
-                    if (command.Ins != _stageIns || command.Data.Length != 32) return Fail();
+                    if (command.Ins != _stageIns || command.Data.Length != 32)
+                        {
+                            return Fail();
+                        }
 
-                    var plain = AesHelper.DecryptCbc(_kxe, new byte[16], command.Data);
+                        var plain = AesHelper.DecryptCbc(_kxe, new byte[16], command.Data);
                     var rndA = SamAv3Crypto.Slice(plain, 0, 16);
-                    if (!SamAv3Crypto.FixedTimeEquals(SamAv3Crypto.Slice(plain, 16, 16), SamAv3Crypto.RotateLeft(_rndB, 2))) return Fail();
+                    if (!SamAv3Crypto.FixedTimeEquals(SamAv3Crypto.Slice(plain, 16, 16), SamAv3Crypto.RotateLeft(_rndB, 2)))
+                        {
+                            return Fail();
+                        }
 
-                    _stage = 0;
+                        _stage = 0;
                     if (_stageIns == InsAuthenticateHost)
                     {
                         _ke = AesHelper.EncryptBlock(_kx, SamAv3Crypto.Concat(
@@ -187,11 +211,20 @@ namespace Elatec.NET.Tests
 
         private SamApduResponse HandleSecureCommand(SamApdu command)
         {
-            if (!_authenticated) return new SamApduResponse(null, 0x6985);
+            if (!_authenticated)
+            {
+                return new SamApduResponse(null, 0x6985);
+            }
 
-            if (command.Ins == 0xC1 && ChangeKeyEntryStatus.HasValue) return new SamApduResponse(null, ChangeKeyEntryStatus.Value);
+            if (command.Ins == 0xC1 && ChangeKeyEntryStatus.HasValue)
+            {
+                return new SamApduResponse(null, ChangeKeyEntryStatus.Value);
+            }
 
-            if (command.Data.Length < 8) return new SamApduResponse(null, 0x6700);
+            if (command.Data.Length < 8)
+            {
+                return new SamApduResponse(null, 0x6700);
+            }
 
             var encrypted = SamAv3Crypto.Slice(command.Data, 0, command.Data.Length - 8);
             var mac = SamAv3Crypto.Slice(command.Data, command.Data.Length - 8, 8);
@@ -199,7 +232,10 @@ namespace Elatec.NET.Tests
             var macLoad = SamAv3Crypto.Concat(
                 new[] { command.Cla, command.Ins }, counter, new[] { command.P1, command.P2, (byte)command.Data.Length }, encrypted,
                 command.Le.HasValue ? new[] { command.Le.Value } : new byte[0]);
-            if (!SamAv3Crypto.FixedTimeEquals(mac, SamAv3Crypto.Cmac8(_km, macLoad))) return new SamApduResponse(null, 0x1E00);
+            if (!SamAv3Crypto.FixedTimeEquals(mac, SamAv3Crypto.Cmac8(_km, macLoad)))
+            {
+                return new SamApduResponse(null, 0x1E00);
+            }
 
             byte[] plain = new byte[0];
             if (encrypted.Length > 0)

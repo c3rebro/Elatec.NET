@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using Elatec.NET.Cards.Mifare;
-using Elatec.NET.Interfaces;
 using Xunit;
 
 namespace Elatec.NET.Tests
@@ -216,66 +215,44 @@ namespace Elatec.NET.Tests
         /// </summary>
         private static async Task<TWN4ReaderDevice> CreateConnectedDeviceAsync(string port, FailingTransport transport)
         {
+            transport.QueueResponseBytes(0x00);
             var device = new TWN4ReaderDevice(port, _ => transport);
             await device.CallFunctionRawAsync(new byte[] { 0x00, 0x03 });
             return device;
         }
 
         /// <summary>
-        ///     Transport that fails to connect or to disconnect with the given exception. Otherwise it answers every command with "no error".
+        ///     Fake transport that fails to connect or to disconnect with the given exception.
         /// </summary>
-        private sealed class FailingTransport : IReaderTransport
+        private sealed class FailingTransport : FakeReaderTransport
         {
             private readonly Exception _connectFailure;
             private readonly Exception _disconnectFailure;
 
-            public FailingTransport(string portName, Exception connectFailure = null, Exception disconnectFailure = null)
+            public FailingTransport(string portName, Exception connectFailure = null, Exception disconnectFailure = null) : base(portName)
             {
-                PortName = portName;
                 _connectFailure = connectFailure;
                 _disconnectFailure = disconnectFailure;
             }
 
-            public string PortName { get; }
-
-            public int ReadTimeout { get; set; }
-
-            public int WriteTimeout { get; set; }
-
-            public bool IsOpen { get; private set; }
-
-            public event EventHandler<Exception> ErrorReceived;
-
-            public Task ConnectAsync()
+            public override Task ConnectAsync()
             {
-                if (_connectFailure != null) throw _connectFailure;
+                if (_connectFailure != null)
+                {
+                    throw _connectFailure;
+                }
 
-                IsOpen = true;
-                return Task.CompletedTask;
+                return base.ConnectAsync();
             }
 
-            public Task DisconnectAsync()
+            public override Task DisconnectAsync()
             {
-                if (_disconnectFailure != null) throw _disconnectFailure;
+                if (_disconnectFailure != null)
+                {
+                    throw _disconnectFailure;
+                }
 
-                IsOpen = false;
-                return Task.CompletedTask;
-            }
-
-            public Task<string> ReadLineAsync() => Task.FromResult("00");
-
-            public Task WriteLineAsync(string data) => Task.CompletedTask;
-
-            public void DiscardInBuffer()
-            {
-            }
-
-            public void DiscardOutBuffer()
-            {
-            }
-
-            public void Dispose()
-            {
+                return base.DisconnectAsync();
             }
         }
     }

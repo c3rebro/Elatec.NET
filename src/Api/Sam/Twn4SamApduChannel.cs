@@ -1,3 +1,4 @@
+#pragma warning disable S2360 // Optional parameters are intended: callers skip some of them by name (e.g. le: 0, maxRxByteCount: 128), which overloads cannot express.
 using System;
 using System.Threading.Tasks;
 using Elatec.NET.Interfaces;
@@ -30,7 +31,10 @@ namespace Elatec.NET.Sam
 
         public async Task<SamApduResponse> TransmitAsync(SamApdu command)
         {
-            if (command == null) throw new ArgumentNullException(nameof(command));
+            if (command == null)
+            {
+                throw new ArgumentNullException(nameof(command));
+            }
 
             var response = await _reader.ISO7816_ExchangeAPDUAsync(_channel, command.Cla, command.Ins, command.P1, command.P2,
                 command.Data, command.Le, false, _maxRxByteCount);

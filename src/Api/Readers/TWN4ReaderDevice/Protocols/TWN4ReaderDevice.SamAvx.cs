@@ -1,3 +1,5 @@
+#pragma warning disable S2360 // Optional parameters are intended: callers skip some of them by name (e.g. le: 0, maxRxByteCount: 128), which overloads cannot express.
+#pragma warning disable S2333 // TWN4ReaderDevice is split over many files, this analysis only sees one of them.
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -41,10 +43,25 @@ namespace Elatec.NET
         /// <exception cref="ReaderException">The reader reported that the authentication failed.</exception>
         public async Task SAMAVx_AuthenticateHostAsync(byte keyNo, byte[] key, SamAvxKeyType keyType, byte cryptoEnv = 0)
         {
-            if (key == null) throw new ArgumentNullException(nameof(key));
-            if (key.Length != SAMAVX_KEYLENGTH) throw new ArgumentException("SAM AV1/AV2 host key must be 16 bytes.", nameof(key));
-            if (cryptoEnv > SAMAVX_MAX_CRYPTOENV) throw new ArgumentOutOfRangeException(nameof(cryptoEnv), "Cryptographic environment must be between 0 and 3.");
-            if (!Enum.IsDefined(typeof(SamAvxKeyType), keyType)) throw new ArgumentOutOfRangeException(nameof(keyType), "Key type must be 3DES or AES.");
+            if (key == null)
+            {
+                throw new ArgumentNullException(nameof(key));
+            }
+
+            if (key.Length != SAMAVX_KEYLENGTH)
+            {
+                throw new ArgumentException("SAM AV1/AV2 host key must be 16 bytes.", nameof(key));
+            }
+
+            if (cryptoEnv > SAMAVX_MAX_CRYPTOENV)
+            {
+                throw new ArgumentOutOfRangeException(nameof(cryptoEnv), "Cryptographic environment must be between 0 and 3.");
+            }
+
+            if (!Enum.IsDefined(typeof(SamAvxKeyType), keyType))
+            {
+                throw new ArgumentOutOfRangeException(nameof(keyType), "Key type must be 3DES or AES.");
+            }
 
             // Simple Protocol: SAMAVx_AuthenticateHost [2200][Byte: CryptoEnv][Byte: KeyNo][Byte Array(Var): Key][Byte: KeyType]
             List<byte> bytes = new List<byte> { API_SAMAVX, SAMAVX_AUTHENTICATEHOST, cryptoEnv, keyNo, (byte)key.Length };
@@ -71,11 +88,16 @@ namespace Elatec.NET
         /// <inheritdoc cref="SAMAVx_AuthenticateHostAsync(byte, byte[], SamAvxKeyType, byte)"/>
         public async Task SAMAVx_AuthenticateHostAsync(byte keyNo, string keyHex, SamAvxKeyType keyType, byte cryptoEnv = 0)
         {
-            if (keyHex == null) throw new ArgumentNullException(nameof(keyHex));
+            if (keyHex == null)
+            {
+                throw new ArgumentNullException(nameof(keyHex));
+            }
 
             var key = ByteArrayConverter.GetBytesFrom(keyHex);
             if (key.Length != SAMAVX_KEYLENGTH)
+            {
                 throw new ArgumentException("SAM AV1/AV2 host key must be 16 bytes (32 hex characters).", nameof(keyHex));
+            }
 
             await SAMAVx_AuthenticateHostAsync(keyNo, key, keyType, cryptoEnv);
         }
@@ -90,10 +112,12 @@ namespace Elatec.NET
         public async Task<SamAvxKeyEntry> SAMAVx_GetKeyEntryAsync(byte keyNo)
         {
             // Simple Protocol: SAMAVx_GetKeyEntry [2201][Byte: KeyNo] -> [00][Bool: Result][Byte Array(13): TSAMAVxKeyEntryData]
-            var parser = await CallFunctionAsync(new byte[] { API_SAMAVX, SAMAVX_GETKEYENTRY, keyNo });
+            var parser = await CallFunctionAsync(new[] { API_SAMAVX, SAMAVX_GETKEYENTRY, keyNo });
             var success = parser.ParseBool();
             if (!success)
+            {
                 return null;
+            }
 
             return new SamAvxKeyEntry
             {
