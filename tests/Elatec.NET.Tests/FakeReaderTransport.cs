@@ -34,14 +34,14 @@ namespace Elatec.NET.Tests
 
         public event EventHandler<Exception> ErrorReceived;
 
-        public Task ConnectAsync()
+        public virtual Task ConnectAsync()
         {
             ConnectCalled = true;
             IsOpen = true;
             return Task.CompletedTask;
         }
 
-        public Task DisconnectAsync()
+        public virtual Task DisconnectAsync()
         {
             IsOpen = false;
             return Task.CompletedTask;

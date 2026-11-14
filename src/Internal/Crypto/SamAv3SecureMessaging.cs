@@ -79,7 +79,10 @@ namespace Elatec.NET
         /// <summary>Compares two byte arrays in a time that does not depend on where they differ.</summary>
         public static bool FixedTimeEquals(byte[] a, byte[] b)
         {
-            if (a.Length != b.Length) return false;
+            if (a.Length != b.Length)
+            {
+                return false;
+            }
 
             var difference = 0;
             for (var i = 0; i < a.Length; i++)
@@ -159,7 +162,9 @@ namespace Elatec.NET
         public SamApdu Protect(byte cla, byte ins, byte p1, byte p2, byte[] data, byte? le)
         {
             if (Counter == uint.MaxValue)
+            {
                 throw new SamException("The command counter of the SAM session is exhausted, authenticate again.");
+            }
 
             var counter = SamAv3Crypto.BigEndian(Counter);
 
@@ -172,7 +177,9 @@ namespace Elatec.NET
 
             var lc = encrypted.Length + MacLength;
             if (lc > byte.MaxValue)
+            {
                 throw new ArgumentException("The data field is too long for a short APDU once encrypted.", nameof(data));
+            }
 
             var macLoad = SamAv3Crypto.Concat(
                 new[] { cla, ins },
@@ -192,10 +199,14 @@ namespace Elatec.NET
         public byte[] Unprotect(SamApduResponse response)
         {
             if (response.StatusWord != 0x9000)
+            {
                 throw new SamException($"The SAM returned status {response.StatusWord:X4}.", response.StatusWord);
+            }
 
             if (response.Data.Length < MacLength)
+            {
                 throw new SamException("The SAM response is too short to contain a CMAC.", response.StatusWord);
+            }
 
             var encrypted = SamAv3Crypto.Slice(response.Data, 0, response.Data.Length - MacLength);
             var receivedMac = SamAv3Crypto.Slice(response.Data, response.Data.Length - MacLength, MacLength);
@@ -203,15 +214,21 @@ namespace Elatec.NET
             var responseCounter = SamAv3Crypto.BigEndian(Counter + 1);
             var macLoad = SamAv3Crypto.Concat(new[] { response.Sw1, response.Sw2 }, responseCounter, encrypted);
             if (!SamAv3Crypto.FixedTimeEquals(SamAv3Crypto.Cmac8(_km, macLoad), receivedMac))
+            {
                 throw new SamException("The CMAC of the SAM response is invalid.", response.StatusWord);
+            }
 
             Counter++;
 
             if (encrypted.Length == 0)
+            {
                 return new byte[0];
+            }
 
             if (encrypted.Length % AesHelper.BlockSize != 0)
+            {
                 throw new SamException("The encrypted SAM response is not a multiple of the AES block size.", response.StatusWord);
+            }
 
             var iv = AesHelper.EncryptBlock(_ke, SamAv3Crypto.Concat(SamAv3Crypto.Repeat(0x02, 4), responseCounter, responseCounter, responseCounter));
             return SamAv3Crypto.UnpadMethod2(AesHelper.DecryptCbc(_ke, iv, encrypted));

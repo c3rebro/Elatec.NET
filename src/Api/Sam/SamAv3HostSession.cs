@@ -1,3 +1,4 @@
+#pragma warning disable S2360 // Optional parameters are intended: callers skip some of them by name (e.g. le: 0, maxRxByteCount: 128), which overloads cannot express.
 using System;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
@@ -86,8 +87,15 @@ namespace Elatec.NET.Sam
         /// <exception cref="SamException">The SAM rejected the authentication or its response failed verification.</exception>
         public async Task AuthenticateHostAsync(byte keyNo, byte keyVersion, byte[] hostKey)
         {
-            if (hostKey == null) throw new ArgumentNullException(nameof(hostKey));
-            if (hostKey.Length != HostKeyLength) throw new ArgumentException("The host key must be 16 bytes (AES-128).", nameof(hostKey));
+            if (hostKey == null)
+            {
+                throw new ArgumentNullException(nameof(hostKey));
+            }
+
+            if (hostKey.Length != HostKeyLength)
+            {
+                throw new ArgumentException("The host key must be 16 bytes (AES-128).", nameof(hostKey));
+            }
 
             Invalidate();
 
@@ -146,8 +154,15 @@ namespace Elatec.NET.Sam
         /// <exception cref="SamException">The SAM rejected the command or its response failed verification.</exception>
         public async Task ActivateSamAsync(byte keyNo, byte keyVersion, byte[] key)
         {
-            if (key == null) throw new ArgumentNullException(nameof(key));
-            if (key.Length != HostKeyLength) throw new ArgumentException("The key must be 16 bytes (AES-128).", nameof(key));
+            if (key == null)
+            {
+                throw new ArgumentNullException(nameof(key));
+            }
+
+            if (key.Length != HostKeyLength)
+            {
+                throw new ArgumentException("The key must be 16 bytes (AES-128).", nameof(key));
+            }
 
             Invalidate();
 
@@ -191,7 +206,11 @@ namespace Elatec.NET.Sam
                 // Part 1: the SAM answers with its 12 byte random Rnd2.
                 var part1 = await _channel.TransmitAsync(new SamApdu(Cla, ins, p1, 0x00, part1Data, 0x00));
                 ExpectStatus(part1, 0x90AF, "authentication (part 1)");
-                if (part1.Data.Length != 12) throw new SamException("The SAM returned an unexpected random number length.", part1.StatusWord);
+                if (part1.Data.Length != 12)
+                {
+                    throw new SamException("The SAM returned an unexpected random number length.", part1.StatusWord);
+                }
+
                 var rnd2 = part1.Data;
 
                 // Part 2: CMAC(Rnd2 | mode | padding) and our 12 byte random Rnd1.
@@ -199,7 +218,10 @@ namespace Elatec.NET.Sam
                 var mac = SamAv3Crypto.Cmac8(kx, SamAv3Crypto.Concat(rnd2, ModeBlock(modeByte)));
                 var part2 = await _channel.TransmitAsync(new SamApdu(Cla, ins, 0x00, 0x00, SamAv3Crypto.Concat(mac, rnd1), 0x00));
                 ExpectStatus(part2, 0x90AF, "authentication (part 2)");
-                if (part2.Data.Length != 8 + 16) throw new SamException("The SAM returned an unexpected authentication response length.", part2.StatusWord);
+                if (part2.Data.Length != 8 + 16)
+                {
+                    throw new SamException("The SAM returned an unexpected authentication response length.", part2.StatusWord);
+                }
 
                 // Kxe encrypts the rest of the authentication. SV1 = Rnd1[7..11] | Rnd2[7..11] | Rnd1[0..4] xor Rnd2[0..4] | 0x91
                 kxe = AesHelper.EncryptBlock(kx, SamAv3Crypto.Concat(
@@ -211,7 +233,9 @@ namespace Elatec.NET.Sam
                 // The SAM proves it knows the key: CMAC(Rnd1 | mode | padding).
                 var expectedMac = SamAv3Crypto.Cmac8(kx, SamAv3Crypto.Concat(rnd1, ModeBlock(modeByte)));
                 if (!SamAv3Crypto.FixedTimeEquals(expectedMac, SamAv3Crypto.Slice(part2.Data, 0, 8)))
+                {
                     throw new SamException("The SAM failed to prove knowledge of the key (CMAC mismatch).", part2.StatusWord);
+                }
 
                 var rndB = AesHelper.DecryptCbc(kxe, new byte[AesHelper.BlockSize], SamAv3Crypto.Slice(part2.Data, 8, 16));
 
@@ -227,10 +251,12 @@ namespace Elatec.NET.Sam
                 {
                     var rndAFromSam = AesHelper.DecryptCbc(kxe, new byte[AesHelper.BlockSize], part3.Data);
                     if (!SamAv3Crypto.FixedTimeEquals(rndAFromSam, SamAv3Crypto.RotateLeft(rndA, 2)))
+                    {
                         throw new SamException(requireFinalProof
                             ? "The SAM failed to prove knowledge of the key (RndA mismatch)."
                             : "The SAM reported success, but the proof of the key it returned (RndA) is invalid. The operation may nevertheless have taken effect.",
                             part3.StatusWord);
+                    }
                 }
                 else if (requireFinalProof)
                 {
@@ -241,7 +267,10 @@ namespace Elatec.NET.Sam
             }
             finally
             {
-                if (kxe != null) Array.Clear(kxe, 0, kxe.Length);
+                if (kxe != null)
+                {
+                    Array.Clear(kxe, 0, kxe.Length);
+                }
             }
         }
 
@@ -264,12 +293,25 @@ namespace Elatec.NET.Sam
         /// <exception cref="SamException">The SAM rejected the command or its response failed verification.</exception>
         public async Task ChangeKeyEntryAsync(byte keyEntryNo, SamAv3KeyEntry entry, bool allowMasterKeyChange = false, bool allowIrreversibleLock = false)
         {
-            if (entry == null) throw new ArgumentNullException(nameof(entry));
-            if (keyEntryNo > MaxKeyEntryNumber) throw new ArgumentOutOfRangeException(nameof(keyEntryNo), "Key entry numbers range from 0 to 127.");
+            if (entry == null)
+            {
+                throw new ArgumentNullException(nameof(entry));
+            }
+
+            if (keyEntryNo > MaxKeyEntryNumber)
+            {
+                throw new ArgumentOutOfRangeException(nameof(keyEntryNo), "Key entry numbers range from 0 to 127.");
+            }
+
             if (keyEntryNo == 0 && !allowMasterKeyChange)
+            {
                 throw new InvalidOperationException("Key entry 0 is the SAM master key. Pass allowMasterKeyChange: true if you really want to replace it.");
+            }
+
             if (entry.KeyNoCek > MaxKeyEntryNumber && entry.KeyNoCek != SamAv3KeyEntry.ChangeFree && !allowIrreversibleLock)
+            {
                 throw new InvalidOperationException("KeyNoCEK " + entry.KeyNoCek.ToString("X2") + " irreversibly locks the key entry. Pass allowIrreversibleLock: true if you really want that.");
+            }
 
             var data = entry.ToCommandData();
             try
@@ -297,7 +339,9 @@ namespace Elatec.NET.Sam
         {
             var secureMessaging = _secureMessaging;
             if (secureMessaging == null)
+            {
                 throw new InvalidOperationException("Not authenticated, call AuthenticateHostAsync first.");
+            }
 
             var command = secureMessaging.Protect(Cla, ins, p1, p2, data ?? new byte[0], le);
             try
@@ -336,13 +380,19 @@ namespace Elatec.NET.Sam
         private static void ExpectStatus(SamApduResponse response, ushort expected, string step)
         {
             if (response.StatusWord != expected)
+            {
                 throw new SamException($"The SAM returned status {response.StatusWord:X4} during {step}, expected {expected:X4}.", response.StatusWord);
+            }
         }
 
         private byte[] Random(int count)
         {
             var random = _randomSource(count);
-            if (random == null || random.Length != count) throw new InvalidOperationException("The random source returned the wrong number of bytes.");
+            if (random == null || random.Length != count)
+            {
+                throw new InvalidOperationException("The random source returned the wrong number of bytes.");
+            }
+
             return random;
         }
 

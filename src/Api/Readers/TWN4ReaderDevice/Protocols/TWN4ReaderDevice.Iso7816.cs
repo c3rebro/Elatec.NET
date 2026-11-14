@@ -1,3 +1,5 @@
+#pragma warning disable S2360 // Optional parameters are intended: callers skip some of them by name (e.g. le: 0, maxRxByteCount: 128), which overloads cannot express.
+#pragma warning disable S2333 // TWN4ReaderDevice is split over many files, this analysis only sees one of them.
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -47,10 +49,12 @@ namespace Elatec.NET
         /// <returns>The slot status, or <see langword="null"/> if the reader reported the operation as failed.</returns>
         public async Task<Iso7816SlotStatus> ISO7816_GetSlotStatusAsync(Iso7816Channel channel)
         {
-            var parser = await CallFunctionAsync(new byte[] { API_ISO7816, ISO7816_GETSLOTSTATUS, (byte)channel });
+            var parser = await CallFunctionAsync(new[] { API_ISO7816, ISO7816_GETSLOTSTATUS, (byte)channel });
             var success = parser.ParseBool();
             if (!success)
+            {
                 return null;
+            }
 
             return ParseIso7816SlotStatus(parser);
         }
@@ -67,10 +71,12 @@ namespace Elatec.NET
         /// <returns>The ATR and slot state, or <see langword="null"/> if the reader reported the operation as failed (e.g. no card inserted).</returns>
         public async Task<Iso7816PowerOnResult> ISO7816_IccPowerOnAsync(Iso7816Channel channel, Iso7816PowerSelect powerSelect = Iso7816PowerSelect.Auto, byte maxAtrByteCount = byte.MaxValue)
         {
-            var parser = await CallFunctionAsync(new byte[] { API_ISO7816, ISO7816_ICCPOWERON, (byte)channel, maxAtrByteCount, (byte)powerSelect });
+            var parser = await CallFunctionAsync(new[] { API_ISO7816, ISO7816_ICCPOWERON, (byte)channel, maxAtrByteCount, (byte)powerSelect });
             var success = parser.ParseBool();
             if (!success)
+            {
                 return null;
+            }
 
             var atr = parser.ParseVarByteArray();
             var statusRegister = parser.ParseByte();
@@ -93,10 +99,12 @@ namespace Elatec.NET
         /// <returns>The slot status, or <see langword="null"/> if the reader reported the operation as failed.</returns>
         public async Task<Iso7816SlotStatus> ISO7816_IccPowerOffAsync(Iso7816Channel channel)
         {
-            var parser = await CallFunctionAsync(new byte[] { API_ISO7816, ISO7816_ICCPOWEROFF, (byte)channel });
+            var parser = await CallFunctionAsync(new[] { API_ISO7816, ISO7816_ICCPOWEROFF, (byte)channel });
             var success = parser.ParseBool();
             if (!success)
+            {
                 return null;
+            }
 
             return ParseIso7816SlotStatus(parser);
         }
@@ -114,7 +122,10 @@ namespace Elatec.NET
         /// <exception cref="ReaderException">The reader reported that the operation failed.</exception>
         public async Task ISO7816_SetCommSettingsAsync(Iso7816Channel channel, Iso7816CommSettings settings)
         {
-            if (settings == null) throw new ArgumentNullException(nameof(settings));
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
 
             var bytes = new List<byte> { API_ISO7816, ISO7816_SETCOMMSETTINGS, (byte)channel };
             bytes.AddRange(settings.ToBytes());
@@ -141,8 +152,15 @@ namespace Elatec.NET
         /// <exception cref="ArgumentException"><paramref name="tx"/> is longer than 65535 bytes.</exception>
         public async Task<byte[]> ISO7816_TransceiveAsync(Iso7816Channel channel, byte[] tx, byte maxRxByteCount = byte.MaxValue)
         {
-            if (tx == null) throw new ArgumentNullException(nameof(tx));
-            if (tx.Length > ushort.MaxValue) throw new ArgumentException("Data to transmit must not exceed 65535 bytes.", nameof(tx));
+            if (tx == null)
+            {
+                throw new ArgumentNullException(nameof(tx));
+            }
+
+            if (tx.Length > ushort.MaxValue)
+            {
+                throw new ArgumentException("Data to transmit must not exceed 65535 bytes.", nameof(tx));
+            }
 
             var bytes = new List<byte> { API_ISO7816, ISO7816_TRANSCEIVE, (byte)channel };
             bytes.AddUInt16((ushort)tx.Length);
@@ -152,7 +170,9 @@ namespace Elatec.NET
             var parser = await CallFunctionAsync(bytes.ToArray());
             var success = parser.ParseBool();
             if (!success)
+            {
                 return null;
+            }
 
             return parser.ParseUInt16LengthPrefixedByteArray();
         }
@@ -181,9 +201,11 @@ namespace Elatec.NET
         {
             var txData = data ?? Array.Empty<byte>();
             if (txData.Length > (extendedApdu ? ushort.MaxValue : byte.MaxValue))
+            {
                 throw new ArgumentException(extendedApdu
                     ? "The data field of an extended APDU must not exceed 65535 bytes."
                     : "The data field of a short APDU must not exceed 255 bytes, use an extended APDU for more.", nameof(data));
+            }
 
             // Simple Protocol: ISO7816_ExchangeAPDU [1005][Byte: Channel][Byte Array(9): Header][Byte Array(Var), 2 LB: TXData][UInt16: MaxRXByteCnt]
             // Header: [CLA][INS][P1][P2][UInt16: Lc][UInt16: Le][Byte: Flags (bit 0 = LePresent, bit 1 = ExtendedAPDU)]
@@ -198,7 +220,9 @@ namespace Elatec.NET
             var parser = await CallFunctionAsync(bytes.ToArray());
             var success = parser.ParseBool();
             if (!success)
+            {
                 return null;
+            }
 
             return ParseIso7816ApduResponse(parser);
         }
@@ -222,7 +246,10 @@ namespace Elatec.NET
             byte[] data = null, ushort maxRxByteCount = 256)
         {
             var txData = data ?? Array.Empty<byte>();
-            if (txData.Length > ushort.MaxValue) throw new ArgumentException("Data field must not exceed 65535 bytes.", nameof(data));
+            if (txData.Length > ushort.MaxValue)
+            {
+                throw new ArgumentException("Data field must not exceed 65535 bytes.", nameof(data));
+            }
 
             // Simple Protocol: ISO7816_T0_TPDU [1006][Byte: Channel][Byte Array(5): Header][Byte Array(Var), 2 LB: TXData][UInt16: MaxRXByteCnt]
             var bytes = new List<byte> { API_ISO7816, ISO7816_T0_TPDU, (byte)channel, cla, ins, p1, p2, p3 };
@@ -233,7 +260,9 @@ namespace Elatec.NET
             var parser = await CallFunctionAsync(bytes.ToArray());
             var success = parser.ParseBool();
             if (!success)
+            {
                 return null;
+            }
 
             return ParseIso7816ApduResponse(parser);
         }
@@ -249,10 +278,12 @@ namespace Elatec.NET
         /// </returns>
         public async Task<byte[]> ISO7816_CheckWellKnownCardsAsync(Iso7816Channel channel)
         {
-            var parser = await CallFunctionAsync(new byte[] { API_ISO7816, ISO7816_CHECKWELLKNOWNCARDS, (byte)channel });
+            var parser = await CallFunctionAsync(new[] { API_ISO7816, ISO7816_CHECKWELLKNOWNCARDS, (byte)channel });
             var success = parser.ParseBool();
             if (!success)
+            {
                 return null;
+            }
 
             return parser.ParseFixByteArray(4);
         }
@@ -401,11 +432,19 @@ namespace Elatec.NET
                 switch (Protocol)
                 {
                     case Iso7816Protocol.T0:
-                        if (T0 == null) throw new ArgumentException("Protocol data for T=0 is missing in the communication settings.");
+                        if (T0 == null)
+                        {
+                            throw new ArgumentException("Protocol data for T=0 is missing in the communication settings.");
+                        }
+
                         bytes.AddRange(T0.ToBytes());
                         break;
                     case Iso7816Protocol.T1:
-                        if (T1 == null) throw new ArgumentException("Protocol data for T=1 is missing in the communication settings.");
+                        if (T1 == null)
+                        {
+                            throw new ArgumentException("Protocol data for T=1 is missing in the communication settings.");
+                        }
+
                         bytes.AddRange(T1.ToBytes());
                         break;
                     default:
@@ -477,7 +516,7 @@ namespace Elatec.NET
 
             internal byte[] ToBytes()
             {
-                return new byte[] { FindexDindex, Tccks, GuardTime, WaitingIntegers, ClockStop, Ifsc, NadValue, Wtx };
+                return new[] { FindexDindex, Tccks, GuardTime, WaitingIntegers, ClockStop, Ifsc, NadValue, Wtx };
             }
         }
 
