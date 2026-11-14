@@ -129,7 +129,13 @@ namespace Elatec.NET
         /// This function is used to retrieve internal system errors of the reader. Do not deduce protocol or communication errors from this function call.
         /// </summary>
         /// <returns></returns>
-        /// <remarks>SYSFUNC(API_SYS,10, unsigned int GetLastError(void))</remarks>
+        /// <remarks>
+        /// SYSFUNC(API_SYS,10, unsigned int GetLastError(void))
+        /// <para>
+        /// Do not use this function to find out why a card command failed: it does not deliver card errors (confirmed by ELATEC support).
+        /// The Simple Protocol reports a card command only as success or failure, see <see cref="ReaderException"/>.
+        /// </para>
+        /// </remarks>
         public async Task<ReaderError> GetLastErrorAsync()
         {
             var parser = await CallFunctionAsync(new byte[] { API_SYS, 10 });

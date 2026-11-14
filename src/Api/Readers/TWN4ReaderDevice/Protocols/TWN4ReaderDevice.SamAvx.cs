@@ -56,7 +56,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("SAM AV1/AV2 host authentication failed.");
+                throw new ReaderException("SAM AV1/AV2 host authentication failed.", ReaderError.AccessDenied);
             }
         }
 

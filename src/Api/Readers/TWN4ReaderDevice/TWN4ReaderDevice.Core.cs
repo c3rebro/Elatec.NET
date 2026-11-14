@@ -644,7 +644,7 @@ namespace Elatec.NET
                         await _transport.DisconnectAsync().ConfigureAwait(false);
                     }
 
-                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotOpen), null);
+                    throw ReaderException.For(ReaderError.NotOpen, e);
                 }
 
                 if (e is IOException)
@@ -652,7 +652,7 @@ namespace Elatec.NET
                     instance = DeviceManager.GetAvailableReaders();
                 }
 
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotInit), null);
+                throw ReaderException.For(ReaderError.NotInit, e);
             }
 
             var version = await GetVersionStringAsync();
@@ -687,12 +687,12 @@ namespace Elatec.NET
                 //Port Busy? Try Again
                 if (e is UnauthorizedAccessException)
                 {
-                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotOpen), null);
+                    throw ReaderException.For(ReaderError.NotOpen, e);
                 }
 
                 if (e is IOException)
                 {
-                    throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotInit), null);
+                    throw ReaderException.For(ReaderError.NotInit, e);
                 }
 
                 throw;
@@ -836,9 +836,9 @@ namespace Elatec.NET
 
             }
 
-            catch
+            catch (Exception ex)
             {
-                throw new ReaderException("Call was not successfull, error " + Enum.GetName(typeof(ReaderError), ReaderError.NotOpen), null);
+                throw ReaderException.For(ReaderError.NotOpen, ex);
             }
             finally
             {

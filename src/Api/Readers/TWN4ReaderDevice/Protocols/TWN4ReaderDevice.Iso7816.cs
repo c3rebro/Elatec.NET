@@ -124,7 +124,7 @@ namespace Elatec.NET
 
             if (!success)
             {
-                throw new ReaderException("Setting the ISO7816 communication settings failed.");
+                throw new ReaderException("Setting the ISO7816 communication settings failed.", ReaderError.General);
             }
         }
 
