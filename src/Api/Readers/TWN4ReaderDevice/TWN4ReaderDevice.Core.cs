@@ -173,6 +173,12 @@ namespace Elatec.NET
         /// If multiple chips are present, only the first one is returned.
         /// Use <see cref="ISO14443A_SearchMultiTagAsync"/> if you need to work with multiple chips.
         /// </summary>
+        /// <remarks>
+        /// MIFARE Ultralight and NTAG chips cannot be told apart by ATQA and SAK, so for them the chip is asked for its version
+        /// (GET_VERSION). That is how an NTAG213 or an Ultralight EV1 is recognised. A chip that does not know the command
+        /// (Ultralight, Ultralight C) answers with a NAK and is found again with <see cref="SearchTagAsync()"/>. Those chips
+        /// are reported as <see cref="MifareChipSubType.MifareUltralight"/>, Ultralight C is not told apart from Ultralight yet.
+        /// </remarks>
         /// <returns>Depending on the ChipType a BaseChip or specialized class is returned, e.g. MifareChip.</returns>
         public async Task<BaseChip> GetSingleChipAsync()
         {
@@ -602,7 +608,7 @@ namespace Elatec.NET
                             } // SAK b6 = 1 ?
                             else
                             {
-                                currentChip.SubType = MifareChipSubType.MifareUltralight;
+                                currentChip.SubType = await DetectUltralightFamilySubTypeAsync(currentChip);
                             } // Ultralight || NTAG
                         }
                     } // SAK b5 = 1 ?

@@ -63,8 +63,8 @@ namespace Elatec.NET
     /// Mifare Desfire =    0x40 - 0x7F
     /// Desfire Light =     0x80 - 0x8F
     /// Mifare Ultralight = 0x90 - 0x9F
-    /// Mifare Mini =       0xA0 - 0xAF
-    /// NXP NTAG =          0xB0 - 0xBF
+    /// NXP NTAG =          0xA0 - 0xAF
+    /// Mifare Mini =       0xB0 - 0xBF
     /// NXP ICODE =         0xC0 - 0xCF
     ///
     /// 0bxxxx 0000 = nxp type
@@ -83,8 +83,8 @@ namespace Elatec.NET
          * Mifare Desfire = 0x40 - 0x7F
          * Mifare Desfire Light = 0x80 - 0x8F
          * Mifare Ultralight = 0x90 - 0x9F
-         * Mifare Mini = 0xA0 - 0xAF
-         * NXP NTAG = 0xB0 - 0xBF
+         * NXP NTAG = 0xA0 - 0xAF
+         * Mifare Mini = 0xB0 - 0xBF
          * NXP ICODE = 0xC0 - 0xCF
          * 
          * 0bxxxx 0000 = mifare type
@@ -288,7 +288,9 @@ namespace Elatec.NET
 
         MifareUltralight = 0x90,
         MifareUltralightC = 0x91,
-        MifareUltralightC_EV1 = 0x92,
+        MifareUltralight_EV1 = 0x92,                // MIFARE Ultralight EV1 of another size than the following
+        MifareUltralight_EV1_MF0UL11 = 0x93,        // 48 bytes of user memory
+        MifareUltralight_EV1_MF0UL21 = 0x94,        // 128 bytes of user memory
 
         NTAG_210 = 0xA0,
         NTAG_211 = 0xA1,

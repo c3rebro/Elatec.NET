@@ -26,6 +26,7 @@ This note inventories the public surface of `TWN4ReaderDevice` grouped by protoc
 - Ultralight page IO: `MifareUltralight_ReadPageAsync`, `MifareUltralight_WritePageAsync`.
 - Ultralight C auth/key provisioning: `MifareUltralightC_AuthenticateAsync` (hex and byte overloads), `MifareUltralightC_SAMAuthenticateAsync`, `MifareUltralightC_WriteKeyFromSAMAsync`.
 - Ultralight EV1 features: `MifareUltralightEV1_FastReadAsync`, `MifareUltralightEV1_IncCounterAsync`, `MifareUltralightEV1_ReadCounterAsync`, `MifareUltralightEV1_ReadSigAsync`, `MifareUltralightEV1_GetVersionAsync`, `MifareUltralightEV1_PwdAuthAsync`, `MifareUltralightEV1_CheckTearingEventAsync`.
+- Chip identification: `GetSingleChipAsync` asks Ultralight and NTAG chips for GET_VERSION and reports NTAG210/212/213/215/216 and Ultralight EV1 (MF0UL11, MF0UL21). Chips without GET_VERSION are reported as `MifareUltralight`, Ultralight C is not told apart from Ultralight yet. Only the NTAG215 answer has been checked on a chip.
 
 ### MIFARE DESFire (API_MIFAREDESFIRE)
 - Application management: `MifareDesfire_GetAppIDsAsync` (two overloads), `MifareDesfire_CreateApplicationAsync`, `MifareDesfire_DeleteApplicationAsync`, `MifareDesfire_SelectApplicationAsync`.
