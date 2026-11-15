@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Elatec.NET.Cards.Mifare;
 using Elatec.NET.Helpers.ByteArrayHelper;
 using Elatec.NET.Helpers.ByteArrayHelper.Extensions;
 
@@ -260,6 +262,98 @@ namespace Elatec.NET
                 return parser.ParseByte();
             }
             return null;
+        }
+
+        /// <summary>
+        /// Tells the members of the MIFARE Ultralight and NTAG family apart by the answer to GET_VERSION.
+        /// They share ATQA 0x0044 and SAK 0x00, NXP AN10833 cannot separate them without it.
+        /// </summary>
+        /// <param name="version">The 8 byte answer, see <see cref="MifareUltralightEV1_GetVersionAsync"/>.</param>
+        /// <returns>
+        /// The sub type, or <see cref="MifareChipSubType.MifareUltralight"/> if the answer is not one of a chip that is known here
+        /// (other NTAG variants such as NTAG I2C or a different memory size are not guessed from the size alone).
+        /// </returns>
+        internal static MifareChipSubType ClassifyUltralightFamily(byte[] version)
+        {
+            // [0] header 0x00, [1] vendor 0x04 (NXP), [2] product type, [3] product subtype, [4] major, [5] minor, [6] storage size, [7] protocol 0x03
+            if (version == null || version.Length != 8 || version[0] != 0x00 || version[1] != 0x04)
+            {
+                return MifareChipSubType.MifareUltralight;
+            }
+
+            var storageSize = version[6];
+
+            switch (version[2])
+            {
+                case 0x03: // MIFARE Ultralight EV1, the 17 pF and 50 pF variants have the same sizes
+                    switch (storageSize)
+                    {
+                        case 0x0B:
+                            return MifareChipSubType.MifareUltralight_EV1_MF0UL11;
+                        case 0x0E:
+                            return MifareChipSubType.MifareUltralight_EV1_MF0UL21;
+                        default:
+                            return MifareChipSubType.MifareUltralight_EV1;
+                    }
+
+                case 0x04: // NTAG: subtype 0x01 = 17 pF (NTAG210, NTAG212), subtype 0x02 = 50 pF (NTAG213, NTAG215, NTAG216)
+                    switch ((version[3] << 8) | storageSize)
+                    {
+                        case 0x010B:
+                            return MifareChipSubType.NTAG_210;
+                        case 0x010E:
+                            return MifareChipSubType.NTAG_212;
+                        case 0x020F:
+                            return MifareChipSubType.NTAG_213;
+                        case 0x0211:
+                            return MifareChipSubType.NTAG_215;
+                        case 0x0213:
+                            return MifareChipSubType.NTAG_216;
+                        default:
+                            return MifareChipSubType.MifareUltralight;
+                    }
+
+                default:
+                    return MifareChipSubType.MifareUltralight;
+            }
+        }
+
+        /// <summary>
+        /// Identifies a chip of the Ultralight and NTAG family with GET_VERSION, see <see cref="ClassifyUltralightFamily"/>.
+        /// </summary>
+        /// <remarks>
+        /// A chip that does not know GET_VERSION (MIFARE Ultralight, Ultralight C) answers with a NAK and is idle afterwards, every
+        /// following command would fail. It is therefore searched again before this method returns. SelectTag cannot be used for
+        /// that, it does not work on Legic capable readers. Such a chip is reported as <see cref="MifareChipSubType.MifareUltralight"/>.
+        /// </remarks>
+        private async Task<MifareChipSubType> DetectUltralightFamilySubTypeAsync(MifareChip chip)
+        {
+            byte[] version = null;
+            try
+            {
+                version = await MifareUltralightEV1_GetVersionAsync();
+            }
+            catch (TwnException)
+            {
+                // The reader does not offer the function. Treated like a chip that does not answer.
+            }
+
+            if (version != null)
+            {
+                return ClassifyUltralightFamily(version);
+            }
+
+            // Up to three searches, so that with a second tag in the field the identified one is the active one again.
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                var tag = await SearchTagAsync();
+                if (tag == null || tag.IDBytes.SequenceEqual(chip.UID))
+                {
+                    break;
+                }
+            }
+
+            return MifareChipSubType.MifareUltralight;
         }
 
         #endregion
