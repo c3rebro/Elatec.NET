@@ -21,7 +21,12 @@
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<RepositoryUrl>$(Projekt-URL)</RepositoryUrl>
 	<PackageTags>rfid; elatec; twn4</PackageTags>
-	<PackageReleaseNotes>v0.7.0-beta.1 PRE-RELEASE. Added: ISO7816 contact card API (Simple Protocol 0x10xx) to talk to SAMs and contact cards: ISO7816_GetSlotStatusAsync, ISO7816_IccPowerOnAsync, ISO7816_IccPowerOffAsync, ISO7816_SetCommSettingsAsync, ISO7816_TransceiveAsync, ISO7816_ExchangeAPDUAsync, ISO7816_T0_TPDUAsync, ISO7816_CheckWellKnownCardsAsync, with Iso7816Channel (Sam1-Sam4, Sc1) and result models.
+	<PackageReleaseNotes>v0.7.0-beta.2 PRE-RELEASE. Fixed: ReaderException.ErrorNumber is set at every throw site now, it was always None. The message text is unchanged. ReaderException.For builds message and error from one ReaderError, and ConnectAsync, DisconnectAsync and DoTXRXAsync keep the causing exception as InnerException. Fixes #26.
+      Fixed: GetSingleChipAsync recognises NTAG210, NTAG212, NTAG213, NTAG215, NTAG216 and MIFARE Ultralight EV1 (MF0UL11, MF0UL21) with GET_VERSION instead of reporting every such chip as MifareUltralight. Chips without GET_VERSION (Ultralight, Ultralight C) are found again with SearchTag and reported as MifareUltralight, Ultralight C is not told apart from Ultralight yet. Only the NTAG215 answer has been checked on a chip. Fixes #27.
+      Incompatible changes: MifareChipSubType.MifareUltralightC_EV1 is replaced by MifareUltralight_EV1 (0x92), MifareUltralight_EV1_MF0UL11 (0x93) and MifareUltralight_EV1_MF0UL21 (0x94). NTAG and Ultralight EV1 chips are no longer reported as MifareUltralight.
+      Changed: findings of the static code analysis fixed in the SAM and ISO7816 code (braces, redundant array types), no behaviour change.
+      Limitations: the SAM AV3 host protocol has still not been tested with a SAM in a TWN4 reader, see the notes of 0.7.0-beta.1. API may still change before 0.7.0.
+v0.7.0-beta.1 PRE-RELEASE. Added: ISO7816 contact card API (Simple Protocol 0x10xx) to talk to SAMs and contact cards: ISO7816_GetSlotStatusAsync, ISO7816_IccPowerOnAsync, ISO7816_IccPowerOffAsync, ISO7816_SetCommSettingsAsync, ISO7816_TransceiveAsync, ISO7816_ExchangeAPDUAsync, ISO7816_T0_TPDUAsync, ISO7816_CheckWellKnownCardsAsync, with Iso7816Channel (Sam1-Sam4, Sc1) and result models.
       Added: SAM AV1/AV2 API (0x22xx): SAMAVx_AuthenticateHostAsync (byte and hex key overloads) and SAMAVx_GetKeyEntryAsync.
       Added: MIFARE SAM AV3 host protocol (namespace Elatec.NET.Sam): SamAv3HostSession with AES-128 host authentication (full protection), encrypted and MACed commands (ExecuteSecureAsync) and SAM_ChangeKeyEntry (ChangeKeyEntryAsync) to write AES-128 key entries to a SAM. Also SamAv3KeyEntry, ISamApduChannel, Twn4SamApduChannel and SamException. Authentication, key writing and secure messaging are verified against the examples of NXP AN12704.
       Added: SamAv3HostSession.ActivateSamAsync (SAM_LockUnlock, activation of a new SAM). UNVERIFIED on a SAM AV3: the command is not described in the available NXP documents, it follows an open-source SAM AV2 library. Assume that activation is irreversible.
@@ -49,7 +54,7 @@ v0.4.1 Fix: Missing CryptoMode byte in WriteDataAsync()
 v0.4 Added DisconnectAsync()
 v0.3 Incompatible changes: changed bytepattern of CardType
 v0.2 take legic capable reader "specialties" into account. See Readme.MD for further details</PackageReleaseNotes>
-	<AssemblyVersion>0.7.0-beta.1</AssemblyVersion>
+	<AssemblyVersion>0.7.0-beta.2</AssemblyVersion>
 	<FileVersion>$(AssemblyVersion)</FileVersion>
 	<PackageLicenseFile>LICENSE</PackageLicenseFile>
   <IncludeContentInPack>true</IncludeContentInPack>
