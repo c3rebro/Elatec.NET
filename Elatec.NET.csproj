@@ -21,7 +21,8 @@
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<RepositoryUrl>$(Projekt-URL)</RepositoryUrl>
 	<PackageTags>rfid; elatec; twn4</PackageTags>
-	<PackageReleaseNotes>v0.7.0-beta.2 PRE-RELEASE. Fixed: ReaderException.ErrorNumber is set at every throw site now, it was always None. The message text is unchanged. ReaderException.For builds message and error from one ReaderError, and ConnectAsync, DisconnectAsync and DoTXRXAsync keep the causing exception as InnerException. Fixes #26.
+	<PackageReleaseNotes>v0.7.0-beta.3 PRE-RELEASE. Fixed: MifareDesfire_GetVersionAsync returned 4 bytes instead of the version structure: the reader answers 34 bytes without a length byte (hardware information 10, software information 10, production information 14 bytes), the method took the first byte, the vendor byte, for a length. It returns the 34 bytes now. Incompatible change for a caller that relied on the old 4-byte value. A short answer throws an ApplicationException ("Response too short") instead of an ArgumentException. GetSingleChipAsync is not affected, it reads the version with ISO14443_4_TdxAsync.
+v0.7.0-beta.2 PRE-RELEASE. Fixed: ReaderException.ErrorNumber is set at every throw site now, it was always None. The message text is unchanged. ReaderException.For builds message and error from one ReaderError, and ConnectAsync, DisconnectAsync and DoTXRXAsync keep the causing exception as InnerException. Fixes #26.
       Fixed: GetSingleChipAsync recognises NTAG210, NTAG212, NTAG213, NTAG215, NTAG216 and MIFARE Ultralight EV1 (MF0UL11, MF0UL21) with GET_VERSION instead of reporting every such chip as MifareUltralight. Chips without GET_VERSION (Ultralight, Ultralight C) are found again with SearchTag and reported as MifareUltralight, Ultralight C is not told apart from Ultralight yet. Only the NTAG215 answer has been checked on a chip. Fixes #27.
       Incompatible changes: MifareChipSubType.MifareUltralightC_EV1 is replaced by MifareUltralight_EV1 (0x92), MifareUltralight_EV1_MF0UL11 (0x93) and MifareUltralight_EV1_MF0UL21 (0x94). NTAG and Ultralight EV1 chips are no longer reported as MifareUltralight.
       Changed: findings of the static code analysis fixed in the SAM and ISO7816 code (braces, redundant array types), no behaviour change.
@@ -54,7 +55,7 @@ v0.4.1 Fix: Missing CryptoMode byte in WriteDataAsync()
 v0.4 Added DisconnectAsync()
 v0.3 Incompatible changes: changed bytepattern of CardType
 v0.2 take legic capable reader "specialties" into account. See Readme.MD for further details</PackageReleaseNotes>
-	<AssemblyVersion>0.7.0-beta.2</AssemblyVersion>
+	<AssemblyVersion>0.7.0-beta.3</AssemblyVersion>
 	<FileVersion>$(AssemblyVersion)</FileVersion>
 	<PackageLicenseFile>LICENSE</PackageLicenseFile>
   <IncludeContentInPack>true</IncludeContentInPack>
