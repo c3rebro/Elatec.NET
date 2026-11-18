@@ -651,10 +651,22 @@ namespace Elatec.NET
             }
         }
         /// <summary>
-        /// Get version of a desfire.
+        /// Get version of a desfire (<c>DESFire_GetVersion</c> of the Simple Protocol).
         /// </summary>
-        /// <returns></returns>
-        /// <exception cref="ReaderException"></exception>
+        /// <remarks>
+        /// The answer is not the frame of the card command that <see cref="ISO14443_4_TdxAsync(byte[])"/> gives for <c>0x60</c> (<c>AF</c>
+        /// and 7 bytes): the reader assembles all three frames of GetVersion into one structure of fixed size. This method used to read it as
+        /// a byte array with a length byte, took the first byte of the structure (the vendor <c>04</c>) for the length and returned only the
+        /// 4 bytes after it.
+        /// </remarks>
+        /// <returns>
+        /// The 34 bytes that the reader answers: the hardware information (10 bytes), the software information (10 bytes) and the
+        /// production information (14 bytes: the UID, the batch number, the week and the year of production). Hardware and software
+        /// information each hold the vendor, the type, the sub type, the major and the minor version, the storage size (4 bytes, least
+        /// significant byte first) and the protocol. The type is <c>01</c> for a native DESFire chip and <c>81</c> for an emulated one, e.g. a SmartMX.
+        /// </returns>
+        /// <exception cref="ReaderException">The reader answered with false (<see cref="ReaderError.NotSupported"/>), for example because the
+        /// transponder was not found by a search first.</exception>
         public async Task<byte[]> MifareDesfire_GetVersionAsync()
         {
             {
@@ -665,7 +677,8 @@ namespace Elatec.NET
 
                 if (success)
                 {
-                    return parser.ParseVarByteArray();
+                    // [Byte Array(34): Version] of the documentation: no length byte in front of it.
+                    return parser.ParseFixByteArray(34);
                 }
                 else
                 {

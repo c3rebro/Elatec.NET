@@ -379,7 +379,8 @@ namespace Elatec.NET
                                 byte[] version = null;
                                 try
                                 {
-                                    //for some reason MifareDesfire_GetVersionAsync does not work
+                                    // The first frame of GetVersion (AF and 7 bytes) is wanted, and its offsets are used below.
+                                    // MifareDesfire_GetVersionAsync gives the reader's structure of 34 bytes instead.
                                     version = await ISO14443_4_TdxAsync(new byte[] { 0x60 });
                                     currentChip.VersionL4 = version;
                                 }
