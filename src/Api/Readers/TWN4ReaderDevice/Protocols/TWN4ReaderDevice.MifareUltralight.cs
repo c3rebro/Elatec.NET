@@ -343,15 +343,7 @@ namespace Elatec.NET
                 return ClassifyUltralightFamily(version);
             }
 
-            // Up to three searches, so that with a second tag in the field the identified one is the active one again.
-            for (var attempt = 0; attempt < 3; attempt++)
-            {
-                var tag = await SearchTagAsync();
-                if (tag == null || tag.IDBytes.SequenceEqual(chip.UID))
-                {
-                    break;
-                }
-            }
+            await SearchTagAgainAsync(chip.UID);
 
             return MifareChipSubType.MifareUltralight;
         }

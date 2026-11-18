@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Elatec.NET.Helpers.ByteArrayHelper.Extensions;
 
@@ -227,5 +229,100 @@ namespace Elatec.NET
 
         #endregion
 
+        #region RATS by hand
+
+        // RATS: E0, then FSDI (high nibble, 8 = 256 bytes) and CID (low nibble, 0). A transponder answers within about 5 ms.
+        private static readonly byte[] RatsCommand = { 0xE0, 0x80 };
+
+        private const ushort RatsTimeoutMilliseconds = 20;
+
+        /// <summary>
+        /// Calculates the CRC_A of ISO/IEC 14443-3 (initial value 0x6363, polynomial 0x8408), which <see cref="ISO14443_3_TdxAsync"/> neither
+        /// adds nor checks.
+        /// </summary>
+        /// <param name="data">The bytes that the CRC is calculated over.</param>
+        /// <returns>The two CRC bytes in the order they are sent, the lower byte first.</returns>
+        internal static byte[] CrcA(byte[] data)
+        {
+            ushort crc = 0x6363;
+            foreach (var value in data)
+            {
+                var b = (byte)(value ^ (byte)(crc & 0xFF));
+                b = (byte)(b ^ (byte)(b << 4));
+                crc = (ushort)((crc >> 8) ^ (b << 8) ^ (b << 3) ^ (b >> 4));
+            }
+
+            return new[] { (byte)(crc & 0xFF), (byte)(crc >> 8) };
+        }
+
+        /// <summary>
+        /// Takes the ATS out of the answer to a RATS: the length byte TL, the rest of the ATS (TL bytes in all) and the CRC_A of it.
+        /// </summary>
+        /// <param name="answer">What <see cref="ISO14443_3_TdxAsync"/> returned.</param>
+        /// <returns>
+        /// The ATS as <see cref="ISO14443A_GetAtsAsync"/> gives it (TL first, no CRC), or <see langword="null"/> when there is no answer
+        /// or the answer is no ATS (wrong length, wrong CRC).
+        /// </returns>
+        internal static byte[] ExtractAts(byte[] answer)
+        {
+            if (answer == null || answer.Length < 3)
+            {
+                return null;
+            }
+
+            int length = answer[0];
+            if (length < 1 || answer.Length != length + 2)
+            {
+                return null;
+            }
+
+            var ats = new byte[length];
+            Array.Copy(answer, ats, length);
+            var crc = CrcA(ats);
+
+            return answer[length] == crc[0] && answer[length + 1] == crc[1] ? ats : null;
+        }
+
+        /// <summary>
+        /// Tells whether a SAK is that of a chip that answers like a MIFARE Classic chip: bit 4 set (Classic 1K, 4K, MIFARE Plus in
+        /// security level 1), no ISO/IEC 14443-4 bit (that chip gets its RATS from the reader), no Mini or 2K bit and no RFU bit.
+        /// </summary>
+        /// <param name="sak">The SAK of the chip.</param>
+        /// <returns><see langword="true"/> for SAK 08 and 18.</returns>
+        internal static bool AnswersLikeClassic(byte sak)
+        {
+            return (sak & 0x23) == 0 && (sak & 0x08) != 0;
+        }
+
+        /// <summary>
+        /// Asks the chip for its ATS with a RATS sent by hand, for a chip that the reader has not sent one to.
+        /// </summary>
+        /// <remarks>
+        /// A TWN4 sends the RATS during SearchTag only to a chip that says it talks ISO/IEC 14443-4 (SAK bit 6). A MIFARE Plus in
+        /// security level 1 does not say so (SAK 08 or 18), it answers like a Classic chip, but it answers a RATS and a Classic chip
+        /// does not (NXP AN10833). The chip is searched again afterwards: one that answered is in layer 4 and no longer takes Classic
+        /// commands, one that did not answer is idle. A reader that does not offer the function is treated like a chip that does not answer.
+        /// </remarks>
+        /// <param name="uid">The ID of the chip.</param>
+        /// <returns>The ATS as <see cref="ISO14443A_GetAtsAsync"/> gives it, or <see langword="null"/> when the chip does not answer.</returns>
+        private async Task<byte[]> ReadAtsWithRatsAsync(byte[] uid)
+        {
+            byte[] ats = null;
+            try
+            {
+                var frame = RatsCommand.Concat(CrcA(RatsCommand)).ToArray();
+                ats = ExtractAts(await ISO14443_3_TdxAsync(frame, RatsTimeoutMilliseconds));
+            }
+            catch (TwnException)
+            {
+                // The reader does not offer the function. Treated like a chip that does not answer.
+            }
+
+            await SearchTagAgainAsync(uid);
+
+            return ats;
+        }
+
+        #endregion
     }
 }

@@ -178,6 +178,11 @@ namespace Elatec.NET
         /// (GET_VERSION). That is how an NTAG213 or an Ultralight EV1 is recognised. A chip that does not know the command
         /// (Ultralight, Ultralight C) answers with a NAK and is found again with <see cref="SearchTagAsync()"/>. Those chips
         /// are reported as <see cref="MifareChipSubType.MifareUltralight"/>, Ultralight C is not told apart from Ultralight yet.
+        /// A MIFARE Plus in security level 1 (SAK 08 or 18) answers like a Classic chip, and the reader sends it no RATS during SearchTag.
+        /// It is told from a Classic chip by a RATS sent by hand, which a Plus answers and a Classic chip does not: the ATS decides
+        /// between <see cref="MifareChipSubType.MifarePlus_SL1_2K"/> and <see cref="MifareChipSubType.MifarePlus_SL1_4K"/> and the
+        /// Classic types. The chip is searched again afterwards. Only that chip type was checked on a TWN4 (SAK 18, ATS
+        /// <c>C1 05 2F 2F 00 35 C7</c>).
         /// </remarks>
         /// <returns>Depending on the ChipType a BaseChip or specialized class is returned, e.g. MifareChip.</returns>
         public async Task<BaseChip> GetSingleChipAsync()
@@ -260,6 +265,13 @@ namespace Elatec.NET
                 currentChip.ATS = atsResult;
             }
 
+            // A MIFARE Plus in security level 1 answers like a Classic chip (SAK 08 or 18) and gets no RATS from the reader during
+            // SearchTag, so there is no ATS and it would be taken for a Classic chip. A RATS by hand tells them apart (NXP AN10833).
+            if (currentChip.ATS == null && AnswersLikeClassic(currentChip.SAK))
+            {
+                currentChip.ATS = await ReadAtsWithRatsAsync(currentChip.UID);
+            }
+
             // Start MIFARE identification
             if ((currentChip.SAK & 0x02) == 0x02)
             {
@@ -295,6 +307,12 @@ namespace Elatec.NET
 
                                     else if (ByteArrayConverter.SearchBytePattern(currentChip.ATS, new byte[] { 0xC1, 0x05, 0x2F, 0x2F, 0x01, 0xBC, 0xD6 }) != 0) //MF PlusX 4K in SL1
                                     {
+                                        currentChip.SubType = MifareChipSubType.MifarePlus_SL1_4K;
+                                    }
+
+                                    else
+                                    {
+                                        // A chip with SAK 18 that answers a RATS is no Classic chip, whatever its historical bytes say.
                                         currentChip.SubType = MifareChipSubType.MifarePlus_SL1_4K;
                                     }
 

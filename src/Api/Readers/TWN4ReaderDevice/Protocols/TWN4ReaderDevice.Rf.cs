@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Elatec.NET.Helpers.ByteArrayHelper;
 using Elatec.NET.Helpers.ByteArrayHelper.Extensions;
@@ -176,6 +177,23 @@ namespace Elatec.NET
             public LFTagTypes LFTagTypes { get; internal set; }
             /// <summary>HF tag types bitmask.</summary>
             public HFTagTypes HFTagTypes { get; internal set; }
+        }
+
+        /// <summary>
+        /// Searches for the transponder again, up to three times: after a command that left it idle or in another state, and so that
+        /// with a second tag in the field the one with the given ID is the active one again.
+        /// </summary>
+        /// <param name="uid">The ID of the transponder that is wanted.</param>
+        private async Task SearchTagAgainAsync(byte[] uid)
+        {
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                var tag = await SearchTagAsync();
+                if (tag == null || tag.IDBytes.SequenceEqual(uid))
+                {
+                    break;
+                }
+            }
         }
 
         #endregion
